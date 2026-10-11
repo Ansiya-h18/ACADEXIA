@@ -21,6 +21,7 @@ public class Student {
     private double currentSgpa;
     private double currentCgpa;
     private double attendancePercentage;
+    private boolean active = true;
 
     public Student() {}
 

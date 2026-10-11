@@ -47,7 +47,7 @@ public final class InputFilterFactory {
 
     /**
      * Specialized filter for Register Numbers, Faculty IDs, and Usernames.
-     * Permitted: A-Z, a-z, 0-9, and dashes/underscores only.
+     * Permitted: A-Z, a-z, 0-9, dots (.), dashes (-), and underscores (_).
      */
     public static void applyIdentifierFilter(JTextField field, int maxLength) {
         Consumer<String> feedback = createVisualFeedback(field, "Identifier");
@@ -56,7 +56,7 @@ public final class InputFilterFactory {
                 @Override
                 public void insertString(FilterBypass fb, int offset, String string, AttributeSet attr) throws BadLocationException {
                     if (string != null && isValid(fb.getDocument().getText(0, fb.getDocument().getLength()), string, offset, 0)) {
-                        super.insertString(fb, offset, string.toUpperCase(), attr);
+                        super.insertString(fb, offset, string, attr);
                     } else if (string != null) {
                         feedback.accept(string);
                     }
@@ -69,7 +69,7 @@ public final class InputFilterFactory {
                         return;
                     }
                     if (isValid(fb.getDocument().getText(0, fb.getDocument().getLength()), text, offset, length)) {
-                        super.replace(fb, offset, length, text.toUpperCase(), attrs);
+                        super.replace(fb, offset, length, text, attrs);
                     } else {
                         feedback.accept(text);
                     }
@@ -80,11 +80,66 @@ public final class InputFilterFactory {
                         return false;
                     }
                     for (char c : incoming.toCharArray()) {
-                        if (!Character.isLetterOrDigit(c) && c != '-' && c != '_') {
+                        if (!Character.isLetterOrDigit(c) && c != '-' && c != '_' && c != '.') {
                             return false;
                         }
                     }
                     return true;
+                }
+            });
+        }
+    }
+
+    /**
+     * Specialized filter for Portal Login Identifier field (Username, Email, Phone, Register Number, or Faculty ID).
+     * Permitted: A-Z, a-z, 0-9, dots, dashes, underscores, @, +, and spaces.
+     * Blocks quotes, semicolons, backticks, null bytes, comments, and SQL injection strings.
+     */
+    public static void applyLoginIdentifierFilter(JTextField field, int maxLength) {
+        Consumer<String> feedback = createVisualFeedback(field, "Login Identifier");
+        if (field.getDocument() instanceof AbstractDocument doc) {
+            doc.setDocumentFilter(new DocumentFilter() {
+                @Override
+                public void insertString(FilterBypass fb, int offset, String string, AttributeSet attr) throws BadLocationException {
+                    if (string != null && isValid(fb.getDocument().getText(0, fb.getDocument().getLength()), string, offset, 0)) {
+                        super.insertString(fb, offset, string, attr);
+                    } else if (string != null) {
+                        feedback.accept(string);
+                    }
+                }
+
+                @Override
+                public void replace(FilterBypass fb, int offset, int length, String text, AttributeSet attrs) throws BadLocationException {
+                    if (text == null) {
+                        super.replace(fb, offset, length, null, attrs);
+                        return;
+                    }
+                    if (isValid(fb.getDocument().getText(0, fb.getDocument().getLength()), text, offset, length)) {
+                        super.replace(fb, offset, length, text, attrs);
+                    } else {
+                        feedback.accept(text);
+                    }
+                }
+
+                private boolean isValid(String current, String incoming, int offset, int len) {
+                    if (current.length() - len + incoming.length() > maxLength) {
+                        return false;
+                    }
+                    for (char c : incoming.toCharArray()) {
+                        if (c == '\'' || c == '\"' || c == ';' || c == '`' || c == '\0' || c == '\\') {
+                            return false;
+                        }
+                        if (!Character.isLetterOrDigit(c) && c != '-' && c != '_' && c != '.' && c != '@' && c != '+' && !Character.isWhitespace(c)) {
+                            return false;
+                        }
+                    }
+                    StringBuilder prospective = new StringBuilder(current);
+                    prospective.replace(offset, offset + len, incoming);
+                    String full = prospective.toString();
+                    if (full.contains("--") || full.contains("/*") || full.contains("*/")) {
+                        return false;
+                    }
+                    return !SecurityUtils.containsSqlInjection(full);
                 }
             });
         }

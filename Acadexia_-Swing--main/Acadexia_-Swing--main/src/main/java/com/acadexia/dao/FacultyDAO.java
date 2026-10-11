@@ -161,6 +161,120 @@ public class FacultyDAO {
         } catch (SQLException ignored) {}
     }
 
+    public Faculty getById(int id) {
+        String sql = """
+            SELECT f.*, u.full_name, u.email, u.phone, d.name AS department_name
+            FROM faculty f
+            JOIN users u ON f.user_id = u.id
+            JOIN departments d ON f.department_id = d.id
+            WHERE f.id = ?
+            """;
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    Faculty f = mapResultSetToFaculty(rs);
+                    enrichFacultyRoles(f, conn);
+                    return f;
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error fetching faculty by ID: " + e.getMessage());
+        }
+        return null;
+    }
+
+    public int getTotalFacultyCount() {
+        String sql = "SELECT COUNT(*) FROM faculty";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            if (rs.next()) return rs.getInt(1);
+        } catch (SQLException e) {
+            System.err.println("Error fetching total faculty count: " + e.getMessage());
+        }
+        return 0;
+    }
+
+    public String generateNextFacultyId(String deptCode) {
+        String cleanDept = (deptCode != null && !deptCode.trim().isEmpty()) ? deptCode.trim().toUpperCase() : "CS";
+        if (cleanDept.equals("CSE")) cleanDept = "CS";
+        if (cleanDept.equals("MATH")) cleanDept = "MA";
+        if (cleanDept.equals("ECE")) cleanDept = "EC";
+        String prefix = "FAC-" + cleanDept + "-";
+        String sql = "SELECT faculty_id FROM faculty WHERE faculty_id LIKE ? ORDER BY faculty_id DESC LIMIT 1";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, prefix + "%");
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    String lastId = rs.getString("faculty_id");
+                    if (lastId != null && lastId.length() >= prefix.length() + 3) {
+                        String numPart = lastId.substring(prefix.length());
+                        try {
+                            int nextSeq = Integer.parseInt(numPart) + 1;
+                            return prefix + String.format("%03d", nextSeq);
+                        } catch (NumberFormatException ignored) {}
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error calculating next faculty ID: " + e.getMessage());
+        }
+        return prefix + "001";
+    }
+
+    public boolean updateFaculty(Faculty f) {
+        String updateFacultySql = """
+            UPDATE faculty 
+            SET designation = ?, qualification = ?, department_id = ?, joining_date = ?
+            WHERE id = ?
+            """;
+        String updateUserSql = "UPDATE users SET full_name = ?, email = ?, phone = ? WHERE id = ?";
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            conn.setAutoCommit(false);
+            try (PreparedStatement psFac = conn.prepareStatement(updateFacultySql);
+                 PreparedStatement psUser = conn.prepareStatement(updateUserSql)) {
+                psFac.setString(1, f.getDesignation());
+                psFac.setString(2, f.getQualification());
+                psFac.setInt(3, f.getDepartmentId());
+                psFac.setDate(4, f.getJoiningDate());
+                psFac.setInt(5, f.getId());
+                psFac.executeUpdate();
+
+                psUser.setString(1, f.getFullName().trim());
+                psUser.setString(2, f.getEmail() != null ? f.getEmail().trim() : null);
+                psUser.setString(3, f.getPhone() != null ? f.getPhone().trim() : null);
+                psUser.setInt(4, f.getUserId());
+                psUser.executeUpdate();
+
+                conn.commit();
+                return true;
+            } catch (SQLException ex) {
+                conn.rollback();
+                throw ex;
+            } finally {
+                conn.setAutoCommit(true);
+            }
+        } catch (SQLException e) {
+            System.err.println("Error updating faculty: " + e.getMessage());
+            return false;
+        }
+    }
+
+    public boolean deleteFaculty(int facultyId) {
+        String sql = "DELETE FROM users WHERE id = (SELECT user_id FROM faculty WHERE id = ?)";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, facultyId);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("Error deleting faculty: " + e.getMessage());
+            return false;
+        }
+    }
+
     private Faculty mapResultSetToFaculty(ResultSet rs) throws SQLException {
         Faculty f = new Faculty();
         f.setId(rs.getInt("id"));

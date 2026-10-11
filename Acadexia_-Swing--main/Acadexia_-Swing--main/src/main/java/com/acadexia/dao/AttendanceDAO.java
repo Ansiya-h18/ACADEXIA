@@ -110,10 +110,50 @@ public class AttendanceDAO {
         return list;
     }
 
+    public List<StudentAttendanceRecord> getStudentAttendanceHistory(int studentId) {
+        List<StudentAttendanceRecord> list = new ArrayList<>();
+        String sql = """
+            SELECT a.id, a.date, a.hour, a.status, a.remarks,
+                   sub.code AS subject_code, sub.name AS subject_name,
+                   u.full_name AS faculty_name
+            FROM attendance a
+            JOIN subjects sub ON a.subject_id = sub.id
+            JOIN faculty f ON a.marked_by_faculty_id = f.id
+            JOIN users u ON f.user_id = u.id
+            WHERE a.student_id = ?
+            ORDER BY a.date DESC, a.hour ASC
+            """;
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, studentId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(new StudentAttendanceRecord(
+                            rs.getInt("id"),
+                            rs.getDate("date"),
+                            rs.getInt("hour"),
+                            rs.getString("subject_code"),
+                            rs.getString("subject_name"),
+                            Attendance.Status.valueOf(rs.getString("status")),
+                            rs.getString("faculty_name"),
+                            rs.getString("remarks")
+                    ));
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error fetching student attendance history: " + e.getMessage());
+        }
+        return list;
+    }
+
     public record StudentAttendanceEntry(int studentId, String registerNumber, String rollNumber,
                                          String fullName, Attendance.Status status, String remarks) {}
 
     public record SubjectAttendanceSummary(int subjectId, String subjectCode, String subjectName,
                                            int totalHours, int presentHours, int dutyLeaveHours,
                                            int absentHours, double percentage) {}
+
+    public record StudentAttendanceRecord(int id, Date date, int hour, String subjectCode,
+                                          String subjectName, Attendance.Status status,
+                                          String facultyName, String remarks) {}
 }

@@ -5,6 +5,7 @@ import com.acadexia.dao.FacultyDAO;
 import com.acadexia.dao.StudentDAO;
 import com.acadexia.model.AuditLog;
 import com.acadexia.model.Faculty;
+import com.acadexia.model.Parent;
 import com.acadexia.model.Role;
 import com.acadexia.model.Student;
 import com.acadexia.model.User;
@@ -19,6 +20,8 @@ public final class SessionManager {
     private User currentUser;
     private Faculty currentFaculty;
     private Student currentStudent;
+    private Parent currentParent;
+    private Student linkedChild;
 
     private SessionManager() {}
 
@@ -33,6 +36,8 @@ public final class SessionManager {
         this.currentUser = user;
         this.currentFaculty = null;
         this.currentStudent = null;
+        this.currentParent = null;
+        this.linkedChild = null;
 
         if (user.getRole() == Role.FACULTY) {
             FacultyDAO facDAO = new FacultyDAO();
@@ -40,6 +45,13 @@ public final class SessionManager {
         } else if (user.getRole() == Role.STUDENT) {
             StudentDAO stuDAO = new StudentDAO();
             this.currentStudent = stuDAO.getByUserId(user.getId());
+        } else if (user.getRole() == Role.PARENT) {
+            com.acadexia.dao.ParentDAO parentDAO = new com.acadexia.dao.ParentDAO();
+            this.currentParent = parentDAO.getParentByUserId(user.getId());
+            if (this.currentParent != null && this.currentParent.getStudentId() > 0) {
+                StudentDAO stuDAO = new StudentDAO();
+                this.linkedChild = stuDAO.getById(this.currentParent.getStudentId());
+            }
         }
     }
 
@@ -52,6 +64,8 @@ public final class SessionManager {
         this.currentUser = null;
         this.currentFaculty = null;
         this.currentStudent = null;
+        this.currentParent = null;
+        this.linkedChild = null;
     }
 
     public boolean isLoggedIn() {
@@ -68,6 +82,18 @@ public final class SessionManager {
 
     public Student getCurrentStudent() {
         return currentStudent;
+    }
+
+    public Parent getCurrentParent() {
+        return currentParent;
+    }
+
+    public Student getLinkedChild() {
+        return linkedChild;
+    }
+
+    public void setLinkedChild(Student child) {
+        this.linkedChild = child;
     }
 
     public Role getRole() {

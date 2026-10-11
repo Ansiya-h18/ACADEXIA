@@ -1,167 +1,269 @@
-# Acadexia — Student Result Management System
+# Acadexia - College Management System
 
-> **Tech Stack**: Java 21+, Java Swing (`javax.swing.*`), FlatLaf Light Theme, MySQL (Port 3306), Maven  
-> **Status**: ✅ Fully redesigned, compiled, and ready to run  
-> **Last Updated**: 2026-10-05  
-> **UI Mandate**: 100% Native Desktop Java Swing. No web wrappers or external frontends.
+> **Tech Stack**: Java 27 (compatible with JDK 21+), Strictly Java Swing (`javax.swing.*`), Modern FlatLaf Dark Theme, MySQL (Port 3306), Maven  
+> **Status**: Completed - All Phases Built, Compiled & Packaged  
+> **Last Updated**: 2026-10-04  
+> **UI Mandate**: 100% Native Desktop Java Swing (`javax.swing.*` / `java.awt.*`). No web wrappers or external frontends.
 
 ---
 
 ## 📌 Project Overview
-
-Acadexia is a professional desktop College Management System built with **Java Swing + FlatLaf**.  
-It provides role-based access for four roles:
-
-| Role | Dashboard | Key Features |
-|---|---|---|
-| **Student** | Student Portal | Results, attendance, duty leave, assignments, grievances, feedback |
-| **Faculty** | Faculty Portal | Attendance register, marks entry, assignments, CFA + HOD panels |
-| **Principal** | Principal's Office | Tier-3 duty leave, HOD appointments, analytics, grievances |
-| **Admin** | System Admin | User provisioning, audit logs, system status |
+Acadexia is a comprehensive desktop College Management System built strictly with **Java Swing**. It provides role-based access for:
+- **Principal**: Executive head handling high-level institutional approvals (Final Duty Leave sanctions, HOD appointments, Institutional analytics, Grievance oversight).
+- **System Admin**: Technical administrator managing user credentials, account provisioning, database settings, and inspecting system activity & security **Audit Logs**.
+- **Faculty (Composite Roles)**: Subject Faculty (all classes), Class Advisor/CFA (assigned class), and HOD (department head).
+- **Students**: Academic marksheets, internal evaluations, attendance, timetable, feedback, grievances, and duty leave submissions.
 
 ---
 
-## 🗺️ Architecture
+## 🗺️ System Architecture & Workflow (Based on Flowchart)
 
-```
-src/main/java/com/acadexia/
-├── config/         DatabaseConnection.java, DatabaseSeeder.java
-├── dao/            14 DAO classes (StudentDAO, FacultyDAO, MarkDAO, …)
-├── model/          16 model classes (Student, Faculty, Mark, …)
-├── security/       SessionManager, InputFilterFactory, SqlSanitizerFilter
-└── ui/
-    ├── auth/       LandingFrame.java, RegisterFrame.java
-    ├── common/     MainFrame.java, UITheme.java, UIComponents.java
-    ├── admin/      AdminDashboardFrame.java
-    ├── student/    StudentDashboardFrame.java
-    ├── faculty/    FacultyDashboardFrame.java
-    └── principal/  PrincipalDashboardFrame.java
-```
+```mermaid
+flowchart TD
+    Start([Start]) --> Landing[Landing / Welcome Page]
+    Landing --> Login[Login Portal]
+    Login --> RoleCheck{Role Selection}
 
----
+    %% Student Branch
+    RoleCheck -->|Student| StudentPortal[Student Dashboard]
+    StudentPortal --> S1[View Results / Marksheet]
+    StudentPortal --> S2[Internal Marks]
+    StudentPortal --> S3[Attendance Tracker]
+    StudentPortal --> S4[SGPA / CGPA Analytics]
+    StudentPortal --> S5[Submit Faculty Feedback]
+    StudentPortal --> S6[Grievance Redressal]
+    StudentPortal --> S7[Class Timetable]
+    StudentPortal --> S8[Apply for Duty Leave]
 
-## 🎨 UI Redesign — 2026-10-05
+    %% Faculty Branch (Unified Multi-Role Portal)
+    RoleCheck -->|Faculty| FacultyPortal[Faculty Dashboard]
+    FacultyPortal --> FBase[Subject Faculty Capabilities\n(Available for all assigned classes)]
+    FBase --> F1[Subject Materials & Modules]
+    FBase --> F2[Assignments: Create & Grade]
+    FBase --> F3[Daily Attendance Marking]
+    FBase --> F4[View Anonymous Student Feedback]
+    FBase --> F5[Academic Reports & Analytics]
+    FBase --> F6[Personal Teaching Timetable]
 
-A complete modern UI/UX transformation was applied.  
-**Zero database schema changes. Zero DAO changes. All business logic preserved.**
+    FacultyPortal -.->|If Assigned as CFA| CFAPortal[Class Advisor CFA Capabilities]
+    CFAPortal --> C1[Advised Class Student Directory]
+    CFAPortal --> C2[Faculty Assigned to Class]
+    CFAPortal --> C3[Assignment Tracker: Submitted/Pending]
+    CFAPortal --> C4[All-Subject Marks & Grade Sheet]
+    CFAPortal --> C5[Class SGPA & CGPA Computation]
+    CFAPortal --> C6[Tier-1 Duty Leave Recommendations]
 
-### What changed
+    FacultyPortal -.->|If Assigned as HOD| HODPortal[HOD Capabilities]
+    HODPortal --> H1[Department-wide Student Details]
+    HODPortal --> H2[Semester Management]
+    HODPortal --> H3[Assign Class Advisor & Subject Teachers]
+    HODPortal --> H4[Tier-2 Department Duty Leave Endorsement]
+    HODPortal --> H5[HOD Subject Teaching]
 
-#### Design System
-- **`UITheme.java`** — Switched from `FlatDarkLaf` to `FlatLightLaf`. Full professional academic color palette (`#2563EB` primary blue, `#F8FAFC` background, white surfaces). Centralized fonts (Segoe UI), spacing constants, and table sizing. Legacy aliases kept so no existing code broke.
-- **`UIComponents.java`** — Complete rewrite of the component factory: modern rounded buttons with hover paint, styled text fields with focus border, rounded stat cards with colored left accent bar, striped tables, toast notifications, empty states, toolbar helpers, delete confirmation dialogs.
+    %% Principal Branch (Executive Academic Authority)
+    RoleCheck -->|Principal| PrincipalPortal[Principal Dashboard]
+    PrincipalPortal --> P1[Department & HOD Governance]
+    PrincipalPortal --> P2[Final Tier-3 Duty Leave Approvals]
+    PrincipalPortal --> P3[College-wide Academic & Result Analytics]
+    PrincipalPortal --> P4[Institutional Grievance Redressal Oversight]
 
-#### Login & Registration
-- **`LandingFrame.java`** — Two-column split: dark gradient brand panel (logo, features) + white login card (clean fields, show/hide password toggle, demo chip buttons, SwingWorker async auth).
-- **`RegisterFrame.java`** *(new)* — 3-step registration wizard: Account Info → Personal Info → Confirm. Step progress bar, per-step validation, async account creation via SwingWorker.
+    %% System Admin Branch (Technical & Audit Management)
+    RoleCheck -->|System Admin| AdminPortal[System Admin Dashboard]
+    AdminPortal --> A1[User Account Management & Role Provisioning]
+    AdminPortal --> A2[System & Security Audit Logs Viewer]
+    AdminPortal --> A3[Database Connection & System Configuration]
+    AdminPortal --> A4[Master Data Export & Backup]
 
-#### Navigation Shell
-- **`MainFrame.java`** *(new)* — Base frame that all 4 dashboards extend. Provides:
-  - Left sidebar (230px dark navy) with logo, user profile area, nav buttons, logout
-  - Top bar (60px white) with page title + role badge
-  - `CardLayout` content area — panels swap on nav click
-  - `SidebarNavButton` inner class with active/hover paint
-
-#### Dashboards (all extend `MainFrame`)
-- **`AdminDashboardFrame`** — 4 panels: Overview (stats + quick actions), User Accounts, Audit Logs, System Status
-- **`StudentDashboardFrame`** — 8 panels: Overview (greeting + KPI cards), Results, Attendance, Duty Leave, Timetable, Assignments, Grievances, Feedback
-- **`FacultyDashboardFrame`** — Overview + Teaching (tabbed: attendance/marks/assignments/feedback/timetable) + conditional CFA panel + conditional HOD panel
-- **`PrincipalDashboardFrame`** — 5 panels: Overview, Duty Leave Tier-3, Departments+HOD, Analytics (with summary stats), Grievances
-
-#### Minor DAO addition
-- **`UserDAO.usernameExists()`** — added for registration duplicate check (additive, no existing code changed)
-
-### What was NOT changed
-- `DatabaseConnection.java` — untouched
-- `DatabaseSeeder.java` — untouched
-- All 14 DAO classes — untouched (except `UserDAO` additive method)
-- All 16 model classes — untouched
-- `SessionManager`, `InputFilterFactory`, `SqlSanitizerFilter` — untouched
-- `schema.sql`, `db.properties` — untouched
-- `Main.java` — untouched
-
----
-
-## 🚀 How to Run
-
-### Prerequisites
-1. **Java 21+** installed
-2. **Maven 3.6+** installed
-3. **MySQL 8.x / 9.x** running on `localhost:3306`
-4. Edit `src/main/resources/db.properties` with your MySQL password
-
-### Run
-```bash
-mvn compile
-mvn exec:java
+    %% Logout Flow
+    S1 & S2 & S3 & S4 & S5 & S6 & S7 & S8 --> Logout[Logout]
+    F1 & F2 & F3 & F4 & F5 & F6 --> Logout
+    C1 & C2 & C3 & C4 & C5 & C6 --> Logout
+    H1 & H2 & H3 & H4 & H5 --> Logout
+    P1 & P2 & P3 & P4 --> Logout
+    A1 & A2 & A3 & A4 --> Logout
+    Logout --> Landing
 ```
 
-The app will:
-1. Auto-create `acadexia_db` database
-2. Auto-run `schema.sql` to create all tables
-3. Auto-seed demo users and data
-4. Open the login screen
-
-### Demo Credentials
-
-| Role | Username / ID | Password |
-|---|---|---|
-| System Admin | `admin` | `admin123` |
-| Student | `REG2024CS001` | `student123` |
-| Faculty (HOD CSE) | `FAC-CS-001` | `faculty123` |
-| Faculty (CFA) | `FAC-CS-002` | `faculty123` |
-| Principal | `principal` | `principal123` |
-
----
-
-## 🔒 Security Notes
-
-1. **PreparedStatement everywhere** — no string-concatenated SQL in any DAO
-2. **BCrypt password hashing** — via `jbcrypt` library
-3. **DocumentFilter suite** — blocks SQL injection at keystroke level in all input fields
-4. **Audit log trail** — all significant actions logged to `audit_logs` table
-5. **Session management** — `SessionManager` singleton, cleared on logout
+> 💡 **Key Architecture & Security Notes**:  
+> 1. **Unique Institutional Identifiers**:
+>    - **Students**: Every student has a unique **Register Number** (e.g., `REG2024CS001`) and class **Roll Number**. Students log in directly using their **Register Number** + password.
+>    - **Faculty**: Every faculty member has a unique **Faculty ID / Employee Code** (e.g., `FAC-CS-101`). Faculty log in using their **Faculty ID** + password.
+>    - **Principal**: Logs in using Principal ID (`PRINCIPAL`) + password.
+>    - **System Admin**: Technical administrators log in with their **Admin Username** + password.
+> 2. **Principal vs. System Admin Separation of Concerns**:
+>    - **Principal**: Holds the ultimate institutional authority. Academic and administrative approvals (such as final Duty Leave sanctions, approving HOD appointments, and grievance escalations) are strictly reserved for the Principal.
+>    - **System Admin**: Focuses on IT administration and system governance. System Admins manage credentials, view active user sessions, monitor security alerts, and inspect **System Audit Logs** (tracking logins, SQL injection attempts blocked, record changes). They do not approve academic duty leaves.
+> 3. **3-Tier Duty Leave Approval Pipeline**:
+>    - **Tier 1 (Class Advisor / CFA)**: Reviews student duty leave application and proof, gives recommendation (Recommended / Not Recommended).
+>    - **Tier 2 (HOD)**: Endorses application with department remarks.
+>    - **Tier 3 (Principal)**: Grants the final institutional approval or rejection.
+> 4. **Composite Faculty Roles**: Faculty roles are **not mutually exclusive**. A single faculty member can teach subjects across multiple classes (as a Subject Faculty), act as the designated **Class Faculty Advisor (CFA)** for a specific class batch, and simultaneously serve as the **Head of Department (HOD)**. The Faculty Dashboard dynamically enables the respective workspace tabs (Subject Teaching, Class Advisor Portal, and HOD Portal) based on the logged-in faculty member's active assignments.  
+> 5. **Cross-Departmental Teaching**: HODs and faculty are **not restricted to teaching within their own department**. For example, a Mathematics HOD or Humanities faculty can be assigned to teach subjects (e.g., Discrete Mathematics, Engineering Economics) to students of Computer Science, Mechanical, etc. In their **"My Teaching"** view, faculty see all classes and subjects they teach across any department, while their **"HOD Portal"** strictly scopes administrative governance to their own department.  
+> 6. **Dual-Layer SQL Injection & Exploit Prevention**:
+>    - **UI Input Layer (Swing `DocumentFilter`)**: All `JTextField`, `JPasswordField`, and `JTextArea` inputs are guarded by custom `DocumentFilter`s (`SqlSanitizerFilter`, `AlphaNumericFilter`, `NumericRangeFilter`). These actively block SQL meta-characters (`;`, `--`, `/*`, `'`, `"`, `\0`), prohibit dangerous keywords, enforce strict length boundaries, and provide immediate visual cues if invalid input is typed or pasted.
+>    - **DAO / Data Layer**: 100% strict enforcement of `java.sql.PreparedStatement` with parameterized placeholders (`?`). String concatenation in SQL statements is strictly banned throughout the application. Salting & hashing passwords via BCrypt.
 
 ---
 
 ## 📋 Implementation Checklist
 
-### Original Features (all preserved)
-- [x] MySQL auto-init + seeder
-- [x] Multi-identifier login (register no. / faculty ID / username)
-- [x] Student marksheet, SGPA/CGPA
-- [x] Subject-wise attendance with shortage warning
-- [x] 3-tier duty leave pipeline (CFA → HOD → Principal)
-- [x] Faculty attendance register
-- [x] Faculty marks entry (Series 1/2, internal, semester)
-- [x] Assignment post + submission + grading
-- [x] Anonymous faculty feedback
-- [x] Grievance filing + resolution
-- [x] HOD: assign CFA, assign subject teachers
-- [x] Principal: HOD appointments, duty leave sanctions, analytics
-- [x] Admin: user provisioning, audit logs, system status
+### Phase 1: Project Setup & Core Infrastructure
+- [x] Maven `pom.xml` configuration with dependencies:
+  - FlatLaf Dark Theme (Modern Look and Feel & Themes)
+  - MySQL Connector/J driver (`com.mysql:mysql-connector-j`)
+  - FlatLaf Extras (Icons, font utilities)
+  - BCrypt (`org.mindrot:jbcrypt`) for secure password hashing
+- [x] Database Connection Manager (`DatabaseConnection.java`) & `db.properties` configuration (host, port, database, username, password, auto-create database & tables)
+- [x] Database Schema & Migrations (`schema.sql`):
+  - `users` (id, username, password_hash, role ['STUDENT', 'FACULTY', 'PRINCIPAL', 'ADMIN'], full_name, email, department_id, created_at)
+  - `departments` (id, code, name, hod_faculty_id)
+  - `classes` (id, name, department_id, semester, academic_year, advisor_faculty_id)
+  - `students` (id, user_id, register_number UNIQUE, roll_number, class_id, admission_year)
+  - `faculty` (id, user_id, faculty_id UNIQUE / employee_code, designation, department_id)
+  - `subjects` (id, code, name, department_id, semester, credits)
+  - `subject_assignments` (id, subject_id, faculty_id, class_id, academic_year)
+  - `attendance` (id, student_id, subject_id, date, status, hour)
+  - `marks` (id, student_id, subject_id, exam_type, marks_obtained, max_marks)
+  - `assignments` (id, title, description, subject_id, due_date, max_marks)
+  - `assignment_submissions` (id, assignment_id, student_id, submission_date, status, marks)
+  - `duty_leaves` (id, student_id, reason, start_date, end_date, proof_url, status, advisor_remarks, hod_remarks, principal_remarks, approved_by_principal_id)
+  - `feedback` (id, student_id, faculty_id, subject_id, rating, comments, created_at)
+  - `grievances` (id, student_id, category, description, status, resolution, created_at)
+  - `timetable` (id, class_id, faculty_id, subject_id, day_of_week, time_slot, room_number)
+  - `audit_logs` (id, user_id, action, entity_type, entity_id, timestamp, ip_address, details, status)
+- [x] Database Connection Manager & Initial Data Seeder (Default Principal, Admin, Sample Departments, HODs, Advisors, Subjects, Students)
 
-### New UI Features (added in redesign)
-- [x] Modern light theme (FlatLightLaf)
-- [x] Sidebar navigation shell (all roles)
-- [x] Gradient brand panel on login
-- [x] Show/hide password toggle
-- [x] 3-step registration wizard with validation
-- [x] KPI stat cards with accent bars
-- [x] Toast notifications (success/error/info)
-- [x] SwingWorker async login (non-blocking UI)
-- [x] User profile area in sidebar
-- [x] Logout confirmation dialog
-- [x] Consistent dialog footers (Cancel + Submit)
-- [x] Striped table rows
-- [x] Focus border on input fields
-- [x] Role badge in top bar
+### Phase 2: Design System, Shared Components & Input Security
+- [x] Modern UI Theme Configuration (`UITheme.java` with FlatLaf Dark dynamic parameters)
+- [x] Input Security & SQL Injection Prevention Filters:
+  - Custom Swing `DocumentFilter` suite (`SqlSanitizerFilter`, `AlphaNumericFilter`, `NumericRangeFilter`, `IdentifierFilter`, `InputFilterFactory`)
+  - Real-time keystroke and paste sanitization blocking SQL injection patterns (`;`, `--`, `/*`, quotes, dangerous escape sequences)
+  - Visual border feedback (red border / tooltip hint) when invalid/blocked characters are attempted
+- [x] Reusable UI Components (`UIComponents.java`):
+  - Custom Cards with shadows and rounded borders
+  - Stat Badges & KPI summary tiles
+  - Styled Data Tables with search, filter, and sorting
+  - Custom Form Controls, Date Pickers, and Status Pills
+  - Modern Sidebar Navigation Bar with active tab indicators
+  - Toast / Notification popup system
+
+### Phase 3: Authentication & Landing Flow
+- [x] Modern Landing Page (`LandingFrame.java`) with College branding, hero cards, and quick demo credentials shortcuts
+- [x] Multi-Role Login Screen supporting Institutional Identifiers:
+  - Students log in using **Register Number** + Password
+  - Faculty log in using **Faculty ID / Employee Code** + Password
+  - Principal logs in using **Principal ID / Username** + Password
+  - System Admins log in using **Admin Username** + Password
+- [x] Session Context manager (`SessionManager.java` stores logged-in user profile, permissions, active role)
+
+### Phase 4A: Principal Portal (Executive Governance & Approvals)
+- [x] Executive Institutional Dashboard (`PrincipalDashboardFrame.java`) (Total students, faculty, departments, live attendance summary)
+- [x] Department Governance & HOD Appointments (Assign HOD to departments)
+- [x] Tier-3 Duty Leave Sanction Dashboard (Final approve / reject with principal remarks)
+- [x] Institutional Academic Analytics & Grade Sheets (Class-wise & Department-wise SGPA/CGPA trends)
+- [x] Grievance Redressal Oversight (Review escalated student grievances & resolutions)
+
+### Phase 4B: System Admin Portal (Technical & Audit Management)
+- [x] User Account Management (`AdminDashboardFrame.java`) (Provisioning, password resets, role management, deactivation)
+- [x] **System & Security Audit Logs Viewer**:
+  - Live filterable table of all system events (Logins, Logout, Record Modifications, Duty Leave decisions)
+  - Security Alert Logs (Flagged SQL injection attempts & blocked keystrokes)
+  - Interactive SQL injection simulation tool for testing
+- [x] Database Connection Settings & Health Monitor
+- [x] Master Data Backup & Maintenance utilities
+
+### Phase 5: Faculty Module (Unified Multi-Role Dashboard)
+- [x] Contextual Module Activator (`FacultyDashboardFrame.java`):
+  - **My Teaching (Subject Faculty)**: Always available for all courses/classes assigned to this faculty member (Attendance register, Internals & Exam Marks, Assignments, Feedback viewer, Timetable).
+  - **Class Advisor (CFA) Tab**: Dynamically unlocked if faculty is assigned as CFA to a class (Class student list, all-subject marksheet overview, assignment completion status, duty leave review & forwarding, SGPA/CGPA computation).
+  - **HOD Portal Tab**: Dynamically unlocked if faculty is designated Head of Department (Department-wide students, semester configs, assigning CFAs and subject teachers, department duty leaves).
+- [x] **Subject Faculty Features**:
+  - Class & Subject selector dropdown (switch easily between assigned courses/sections, including cross-departmental courses)
+  - Attendance Entry (Daily register with quick Present/Absent toggles, date & hour selection)
+  - Internal Marks Entry (Series tests, internals, assignments, practicals)
+  - Assignment Management (Post new assignment, track submissions, score submissions)
+  - View Student Feedback (Anonymous ratings and student commentary)
+  - Personal Teaching Timetable
+- [x] **Class Advisor (CFA) Features**:
+  - Advised class master directory with overall attendance and cumulative grades
+  - View subject teachers assigned to their class
+  - Class-wide assignment submission monitor (filter by submitted / pending)
+  - Consolidated marks overview across all subjects for the class
+  - SGPA / CGPA computation & academic standing reports
+  - First-tier Duty Leave review and recommendation
+- [x] **HOD Features**:
+  - Department overview & semester configurations
+  - Assign Faculty Advisors (CFA) to class batches
+  - Assign Subject Teachers to subjects/sections (with universal cross-department faculty picker)
+  - Second-tier Duty Leave review & department recommendation
+  - Department performance reports
+
+### Phase 6: Student Module
+- [x] Student Profile & Overview (`StudentDashboardFrame.java`)
+- [x] Marksheet & Result Viewer (Internal marks, Exam grades, SGPA/CGPA trends)
+- [x] Attendance Tracker with percentage warning indicator (<75% alerts)
+- [x] Timetable Schedule view
+- [x] Submit Anonymous Faculty Feedback
+- [x] Grievance Redressal submission and tracking
+- [x] Apply for Duty Leave with file/reason attachment and live status tracking (3-tier pipeline)
+
+### Phase 8: Parent Dashboard & Guardian Engagement Portal
+- [x] **Database Schema & Data Model Updates**:
+  - Added `'PARENT'` enum value to `users.role` with automatic runtime idempotent migration.
+  - Created `parents` table linking parent user account to student ID, relationship, occupation, address, emergency contact, verification status (`PENDING`, `VERIFIED`, `REJECTED`), verifier ID, and notes.
+  - Created `daily_classwork` table for faculty to log topics taught, homework assigned, and reference materials.
+  - Created `faculty_remarks` table for faculty to post academic, conduct, attendance, and general advisory remarks visible to parents.
+  - Created `exam_schedules` table for institutional series and university examination timetables.
+  - Created `notifications` table for institutional announcements targeted to parents.
+  - Enhanced `Assignment` and `AssignmentSubmission` models and DAOs with submission status, dates, and faculty evaluation comments.
+- [x] **Secure Authentication & Landing Page Integration**:
+  - Added `PARENT` persona to Landing Page with demo chip (`parent.rohan` / `parent123`).
+  - Login support via username, email, or registered parent phone number.
+  - Session manager loads `Parent` profile and automatically resolves linked child `Student` context.
+- [x] **Strict Read-Only Parent Dashboard (`ParentDashboardFrame.java`)**:
+  - Matched exact dark theme palette (`#0B0F1A`, `#0F172A`, `#161D31`, `#2A3656`, `#6366F1`) from `LandingFrame`.
+  - Child Quick Identity Card (Roll, Register No, Batch, Advisor, Attendance %, CGPA, Verification Badge).
+  - 8 Dedicated Read-Only Tabs:
+    1. 📊 **Results & Performance**: GPA trend metrics, SGPA/CGPA cards, comprehensive semester exam marksheet.
+    2. 📅 **Attendance Tracker**: Overall percentage with statutory <75% warning banner, period-by-period class attendance register.
+    3. 📝 **Assignment Status**: List of assigned coursework, submission status (Submitted/Pending), due date countdown, and marks.
+    4. 📖 **Daily Classwork Status**: Faculty daily log of topics covered, homework assigned, and reference materials.
+    5. 💬 **Faculty Feedback & Remarks**: Subject faculty & Class Advisor commendations, conduct reviews, and actionable advice.
+    6. ⏰ **Exam Schedules**: Series and semester examination schedules, dates, time slots, exam hall, max marks, and syllabus portions.
+    7. 📢 **Institutional Notices**: Official college circulars and parent-teacher meeting (PTM) announcements.
+    8. 👤 **Profile & Child Link Info**: Parent contact credentials, verification audit trail, and emergency contact details.
+- [x] **Admin Governance & Verification (`AdminDashboardFrame.java`)**:
+  - Added **"Parent Accounts & Student Linking"** administration workspace.
+  - Real-time parent account search by name, username, child roll number, or register number.
+  - **Provision Parent Account & Link Student Dialog**: Creates parent user and attaches to selected student.
+  - **Verify Parent Details Dialog**: Review guardian identity, set status to `VERIFIED` or `REJECTED`, and record administrative verification notes.
+  - **Re-link Student Dialog**: Securely alter student linkage or guardian relationship.
+  - Toggle Active/Inactive status for parent accounts.
+- [x] **Faculty Integration (`FacultyDashboardFrame.java`)**:
+  - Added **"Log Daily Classwork"** tab: Faculty log date, period, class, subject, topics taught, homework assigned, and reference materials.
+  - Added **"Student & Parent Feedback / Remarks"** tab: Faculty select student and category, rate progress, write comments, and offer actionable advice visible on the Parent portal.
+- [x] **Automated Testing & Database Seeding**:
+  - Created `ParentIntegrationTest.java` verifying 11 integration steps: schema migrations, authentication, parent-student linkage, DAO retrieval across all modules, and admin provisioning flows.
 
 ---
 
 ## 📝 Change Log
+- **2026-10-11**:
+  - **Parent Dashboard & Guardian Portal**:
+    - Architected and fully implemented the Parent Dashboard in pure Java Swing (`ParentDashboardFrame.java`), preserving 100% of the landing page dark theme aesthetic and enforcing strict read-only access to child records.
+    - Updated `AdminDashboardFrame` with parent provisioning, verification management, and child re-linking tools.
+    - Extended `FacultyDashboardFrame` with daily classwork logging and parent/student feedback posting.
+    - Enhanced schema and seeder with `parents`, `daily_classwork`, `faculty_remarks`, `exam_schedules`, and `notifications` tables.
+    - Automated verification passed 11 out of 11 integration checks with 0 compiler errors or warnings.
+- **2026-10-04**: 
+  - Project initialized based on handwritten flowchart.
+  - Created `PROGRESS.md` covering all entities and workflows.
+  - Configured tech stack preferences: Java 27, Swing FlatLaf Dark Theme, MySQL 3306, Maven.
+  - **Refined Faculty Architecture**: Updated data model and UI architecture so that Faculty roles are composite, not mutually exclusive. A faculty member can simultaneously teach multiple subjects across different classes, advise a specific class (CFA), and serve as an HOD. The Faculty dashboard dynamically activates respective tabs according to active assignments.
+  - **Cross-Departmental Teaching Support**: Explicitly architected `subject_assignments` and the faculty dashboard to support inter-departmental teaching (e.g., Mathematics or Basic Science HOD/faculty teaching courses to Computer Science or Mechanical batches). HOD administrative scope remains securely bounded to their home department while their teaching scope is universal.
+  - **Unique Institutional Identifiers**: Integrated unique **Register Number** for Students and **Faculty ID / Employee Code** for Faculty across the database schema and authentication login portal.
+  - **Strict Java Swing Mandate**: Confirmed pure native desktop implementation using Java Swing (`javax.swing.*`, `java.awt.*`) with FlatLaf Dark L&F for modern desktop styling. No web components or web wrappers.
+  - **SQL Injection Prevention & Input Filtering**: Implemented dual-layer protection: (1) Custom Swing `DocumentFilter`s attached to all text inputs to filter and reject SQL injection patterns, characters, and malicious payloads at keystroke/paste time, and (2) 100% parameterized `PreparedStatement` queries at the DAO layer.
+  - **Principal Role & System Admin Audit Separation**: Added dedicated **Principal** role for executive sanctions (Tier-3 final Duty Leave approvals, HOD appointments, academic analytics oversight) and separated **System Admin** into a technical management portal with dedicated **System & Security Audit Logs Viewer** (monitoring logins, user modifications, and blocked SQL injection attempts).
+  - **Full Implementation Complete**: All 44 source files created across models, DAOs, security filters, database auto-initialization/seeder, and UI dashboards (Landing, Student, Faculty, Principal, and System Admin). Verified compilation with `mvn clean compile` and generated executable JAR with `mvn package`.
 
-| Date | Summary |
-|---|---|
-| 2026-10-04 | Project initialized. Full feature set built on FlatDarkLaf. 44 source files. `mvn compile` clean. |
-| 2026-10-05 | **Full modern UI/UX redesign.** FlatLightLaf, MainFrame shell, new login/register, all dashboards redesigned. 46 source files. `mvn compile` clean — 0 errors, 0 warnings. |

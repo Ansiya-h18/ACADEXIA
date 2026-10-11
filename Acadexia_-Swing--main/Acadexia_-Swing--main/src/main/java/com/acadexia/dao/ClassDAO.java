@@ -125,6 +125,18 @@ public class ClassDAO {
         return -1;
     }
 
+    public int getTotalClassCount() {
+        String sql = "SELECT COUNT(*) FROM classes";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            if (rs.next()) return rs.getInt(1);
+        } catch (SQLException e) {
+            System.err.println("Error fetching total class count: " + e.getMessage());
+        }
+        return 0;
+    }
+
     private ClassBatch mapResultSetToClass(ResultSet rs) throws SQLException {
         ClassBatch cb = new ClassBatch();
         cb.setId(rs.getInt("id"));
@@ -142,3 +154,4 @@ public class ClassDAO {
         return cb;
     }
 }
+

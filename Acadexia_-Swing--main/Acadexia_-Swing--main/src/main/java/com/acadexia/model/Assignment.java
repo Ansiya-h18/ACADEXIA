@@ -18,11 +18,14 @@ public class Assignment {
     private double maxMarks;
     private Timestamp createdAt;
 
-    // Computed for student/advisor view
+    // Computed for student/advisor/parent view
     private int totalSubmissions;
     private int totalStudents;
     private boolean submittedByCurrentStudent;
     private Double marksAwarded;
+    private String submissionStatus;
+    private Timestamp submissionDate;
+    private String facultyFeedback;
 
     public Assignment() {}
 
@@ -76,6 +79,15 @@ public class Assignment {
 
     public Double getMarksAwarded() { return marksAwarded; }
     public void setMarksAwarded(Double marksAwarded) { this.marksAwarded = marksAwarded; }
+
+    public String getSubmissionStatus() { return submissionStatus; }
+    public void setSubmissionStatus(String submissionStatus) { this.submissionStatus = submissionStatus; }
+
+    public Timestamp getSubmissionDate() { return submissionDate; }
+    public void setSubmissionDate(Timestamp submissionDate) { this.submissionDate = submissionDate; }
+
+    public String getFacultyFeedback() { return facultyFeedback; }
+    public void setFacultyFeedback(String facultyFeedback) { this.facultyFeedback = facultyFeedback; }
 
     @Override
     public String toString() {

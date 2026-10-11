@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
-    role ENUM('STUDENT', 'FACULTY', 'PRINCIPAL', 'ADMIN') NOT NULL,
+    role ENUM('STUDENT', 'FACULTY', 'PRINCIPAL', 'ADMIN', 'PARENT') NOT NULL,
     full_name VARCHAR(100) NOT NULL,
     email VARCHAR(100) NULL,
     phone VARCHAR(20) NULL,
@@ -229,3 +229,109 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     severity ENUM('INFO', 'WARNING', 'SECURITY_ALERT', 'ERROR') NOT NULL DEFAULT 'INFO',
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS parents (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL UNIQUE,
+    student_id INT NOT NULL,
+    relationship VARCHAR(50) NOT NULL DEFAULT 'Parent',
+    occupation VARCHAR(100) NULL,
+    address TEXT NULL,
+    emergency_contact VARCHAR(20) NULL,
+    verification_status ENUM('PENDING', 'VERIFIED', 'REJECTED') NOT NULL DEFAULT 'PENDING',
+    verified_by_user_id INT NULL,
+    verification_date TIMESTAMP NULL,
+    verification_notes VARCHAR(255) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+    FOREIGN KEY (verified_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS daily_classwork (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    class_id INT NOT NULL,
+    subject_id INT NOT NULL,
+    faculty_id INT NOT NULL,
+    date DATE NOT NULL,
+    period_hour INT NOT NULL DEFAULT 1,
+    topic_covered VARCHAR(255) NOT NULL,
+    homework_assigned TEXT NULL,
+    reference_materials TEXT NULL,
+    status ENUM('COMPLETED', 'IN_PROGRESS', 'POSTPONED') NOT NULL DEFAULT 'COMPLETED',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE,
+    FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE,
+    FOREIGN KEY (faculty_id) REFERENCES faculty(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS faculty_remarks (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    student_id INT NOT NULL,
+    faculty_id INT NOT NULL,
+    subject_id INT NULL,
+    category ENUM('ACADEMIC_PROGRESS', 'CLASS_CONDUCT', 'ATTENDANCE_CONCERN', 'EXCELLENCE', 'GENERAL') NOT NULL DEFAULT 'ACADEMIC_PROGRESS',
+    title VARCHAR(150) NOT NULL,
+    remarks TEXT NOT NULL,
+    action_suggested TEXT NULL,
+    rating INT NULL,
+    date_posted DATE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+    FOREIGN KEY (faculty_id) REFERENCES faculty(id) ON DELETE CASCADE,
+    FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS exam_schedules (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    class_id INT NOT NULL,
+    subject_id INT NOT NULL,
+    exam_type ENUM('SERIES_1', 'SERIES_2', 'INTERNAL', 'SEMESTER_EXAM', 'MODEL_EXAM') NOT NULL,
+    exam_name VARCHAR(100) NOT NULL,
+    exam_date DATE NOT NULL,
+    start_time VARCHAR(20) NOT NULL,
+    end_time VARCHAR(20) NOT NULL,
+    room_hall VARCHAR(50) NOT NULL,
+    max_marks DECIMAL(5,2) NOT NULL DEFAULT 50.00,
+    portions_syllabus TEXT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE,
+    FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS notifications (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(150) NOT NULL,
+    message TEXT NOT NULL,
+    target_audience ENUM('ALL', 'PARENTS', 'STUDENTS', 'FACULTY') NOT NULL DEFAULT 'ALL',
+    target_class_id INT NULL,
+    priority ENUM('LOW', 'NORMAL', 'HIGH', 'URGENT') NOT NULL DEFAULT 'NORMAL',
+    category ENUM('EXAMINATION', 'ATTENDANCE_ALERT', 'PARENT_MEETING', 'ACADEMIC', 'FEES', 'GENERAL') NOT NULL DEFAULT 'GENERAL',
+    posted_by_user_id INT NULL,
+    publish_date DATE NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (target_class_id) REFERENCES classes(id) ON DELETE CASCADE,
+    FOREIGN KEY (posted_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS result_publications (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    class_id INT NOT NULL,
+    subject_id INT NOT NULL,
+    exam_type ENUM('SERIES_1', 'SERIES_2', 'ASSIGNMENT', 'INTERNAL', 'SEMESTER_EXAM') NOT NULL,
+    academic_year VARCHAR(20) NOT NULL,
+    status ENUM('ENTERED', 'VERIFIED', 'PUBLISHED') NOT NULL DEFAULT 'ENTERED',
+    verified_by_user_id INT NULL,
+    published_by_user_id INT NULL,
+    published_at TIMESTAMP NULL,
+    remarks VARCHAR(255) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE,
+    FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE,
+    FOREIGN KEY (verified_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (published_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
+    UNIQUE KEY uq_pub (class_id, subject_id, exam_type, academic_year)
+);
+

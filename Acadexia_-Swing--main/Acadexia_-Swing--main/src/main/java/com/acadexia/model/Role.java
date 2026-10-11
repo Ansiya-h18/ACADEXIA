@@ -7,7 +7,8 @@ public enum Role {
     STUDENT("Student"),
     FACULTY("Faculty"),
     PRINCIPAL("Principal"),
-    ADMIN("System Admin");
+    ADMIN("System Admin"),
+    PARENT("Parent");
 
     private final String displayName;
 

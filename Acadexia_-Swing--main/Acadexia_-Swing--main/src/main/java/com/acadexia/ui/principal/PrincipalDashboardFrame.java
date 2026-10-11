@@ -1,571 +1,421 @@
 package com.acadexia.ui.principal;
 
-import com.acadexia.dao.*;
-import com.acadexia.model.*;
+import com.acadexia.dao.DepartmentDAO;
+import com.acadexia.dao.DutyLeaveDAO;
+import com.acadexia.dao.FacultyDAO;
+import com.acadexia.dao.GrievanceDAO;
+import com.acadexia.dao.StudentDAO;
+import com.acadexia.model.Department;
+import com.acadexia.model.DutyLeave;
+import com.acadexia.model.Faculty;
+import com.acadexia.model.Grievance;
+import com.acadexia.model.Student;
+import com.acadexia.model.User;
 import com.acadexia.security.SessionManager;
-import com.acadexia.ui.common.MainFrame;
+import com.acadexia.ui.auth.LandingFrame;
 import com.acadexia.ui.common.UIComponents;
 import com.acadexia.ui.common.UITheme;
 
 import javax.swing.*;
-import javax.swing.border.*;
+import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.util.List;
 
-/**
- * Principal dashboard — extends MainFrame.
- *
- * Sidebar navigation:
- *   Overview · Duty Leave (Tier-3) · Departments · Analytics · Grievances
- *
- * All DAO calls preserved exactly from the original.
- */
-public class PrincipalDashboardFrame extends MainFrame {
+public class PrincipalDashboardFrame extends JFrame {
 
-    // ── DAOs ──────────────────────────────────────────────────────────────────
-    private final DutyLeaveDAO   dutyLeaveDAO   = new DutyLeaveDAO();
-    private final DepartmentDAO  departmentDAO  = new DepartmentDAO();
-    private final FacultyDAO     facultyDAO     = new FacultyDAO();
-    private final StudentDAO     studentDAO     = new StudentDAO();
-    private final GrievanceDAO   grievanceDAO   = new GrievanceDAO();
+    private final DutyLeaveDAO dutyLeaveDAO = new DutyLeaveDAO();
+    private final DepartmentDAO departmentDAO = new DepartmentDAO();
+    private final FacultyDAO facultyDAO = new FacultyDAO();
+    private final StudentDAO studentDAO = new StudentDAO();
+    private final GrievanceDAO grievanceDAO = new GrievanceDAO();
 
-    // ── table models ──────────────────────────────────────────────────────────
-    private DefaultTableModel leaveModel;
-    private DefaultTableModel deptModel;
-    private DefaultTableModel analyticsModel;
-    private DefaultTableModel grievModel;
+    private DefaultTableModel leaveTableModel;
+    private DefaultTableModel deptTableModel;
+    private DefaultTableModel analyticsTableModel;
+    private DefaultTableModel grievanceTableModel;
 
-    // ── live data for processing ──────────────────────────────────────────────
-    private List<DutyLeave>  pendingLeaves;
-    private List<Grievance>  allGrievances;
+    private List<DutyLeave> pendingLeaves;
+    private List<Grievance> allGrievances;
 
-    // ── constructor ───────────────────────────────────────────────────────────
     public PrincipalDashboardFrame() {
-        super("Acadexia – Principal's Office", 1260, 780);
+        setTitle("Acadexia - Office of the Principal (Executive Academic Governance)");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setSize(1140, 740);
+        setLocationRelativeTo(null);
+        getContentPane().setBackground(UITheme.BG_DARK);
 
-        addNavItem("🏠", "Overview",        "overview",   buildOverviewPanel());
-        addNavItem("📋", "Duty Leaves",     "dutyleave",  buildDutyLeavePanel());
-        addNavItem("🏛️", "Departments",     "departments",buildDepartmentsPanel());
-        addNavItem("📊", "Analytics",       "analytics",  buildAnalyticsPanel());
-        addNavItem("⚖️", "Grievances",      "grievances", buildGrievancesPanel());
-
-        showDefaultPanel();
-        SwingUtilities.invokeLater(this::loadAllData);
+        initUI();
+        loadAllData();
     }
 
-    // =========================================================================
-    // OVERVIEW
-    // =========================================================================
-    private JPanel buildOverviewPanel() {
-        JPanel page = UIComponents.createPagePanel();
-        page.setLayout(new BorderLayout(0, 24));
+    private void initUI() {
+        setLayout(new BorderLayout());
 
-        User user = SessionManager.getInstance().getCurrentUser();
-        String principalName = user != null ? user.getFullName() : "Principal";
+        // Top Navigation Bar
+        add(createTopBar(), BorderLayout.NORTH);
 
-        // Greeting
-        JPanel greeting = new JPanel(new BorderLayout(0, 4));
-        greeting.setOpaque(false);
+        // Center Tabbed Views
+        JTabbedPane tabs = new JTabbedPane();
+        tabs.setFont(UITheme.FONT_BOLD);
 
-        JLabel lblHi = new JLabel("Welcome, " + principalName.split(" ")[0] + " 👋");
-        lblHi.setFont(UITheme.FONT_TITLE);
-        lblHi.setForeground(UITheme.TEXT);
+        tabs.addTab("👑 Executive Overview", createOverviewPanel());
+        tabs.addTab("📋 Tier-3 Duty Leave Sanctions", createDutyLeaveSanctionsPanel());
+        tabs.addTab("🏛️ Department & HOD Governance", createDepartmentGovernancePanel());
+        tabs.addTab("📊 College-wide Academic Analytics", createAcademicAnalyticsPanel());
+        tabs.addTab("⚖️ Grievance Redressal Oversight", createGrievanceOversightPanel());
 
-        JLabel lblRole = new JLabel("Office of the Principal  ·  Executive Academic Governance");
-        lblRole.setFont(UITheme.FONT_REGULAR);
-        lblRole.setForeground(UITheme.TEXT_MUTED);
+        add(tabs, BorderLayout.CENTER);
+    }
 
-        greeting.add(lblHi,   BorderLayout.NORTH);
-        greeting.add(lblRole, BorderLayout.SOUTH);
+    private JPanel createTopBar() {
+        JPanel bar = new JPanel(new BorderLayout());
+        bar.setBackground(new Color(18, 18, 28));
+        bar.setBorder(new EmptyBorder(12, 20, 12, 20));
 
-        // KPI stat cards — load counts live
-        List<Student>    students    = studentDAO.getAllStudents();
-        List<Faculty>    facultyList = facultyDAO.getAllFaculty();
-        List<Department> depts       = departmentDAO.getAllDepartments();
-        List<DutyLeave>  pending     = dutyLeaveDAO.getPendingLeavesForPrincipal();
+        JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
+        left.setOpaque(false);
+        JLabel lblTitle = new JLabel("ACADEXIA PRINCIPAL PORTAL");
+        lblTitle.setFont(UITheme.FONT_SECTION);
+        lblTitle.setForeground(new Color(245, 158, 11)); // Amber/Gold accent
 
-        JPanel cards = new JPanel(new GridLayout(1, 4, 16, 0));
-        cards.setOpaque(false);
-        cards.add(UIComponents.createStatCard("Total Students",    String.valueOf(students.size()),    "Enrolled students",        UITheme.PRIMARY));
-        cards.add(UIComponents.createStatCard("Faculty",           String.valueOf(facultyList.size()), "Teaching staff",           UITheme.INFO));
-        cards.add(UIComponents.createStatCard("Departments",       String.valueOf(depts.size()),       "Academic departments",     UITheme.SUCCESS));
-        cards.add(UIComponents.createStatCard("Pending Sanctions", String.valueOf(pending.size()),     "Duty leaves awaiting you", pending.isEmpty() ? UITheme.SUCCESS : UITheme.DANGER));
+        JLabel lblBadge = UIComponents.createBadge("Executive Academic Sanctions", new Color(120, 53, 15), Color.WHITE);
+        left.add(lblTitle);
+        left.add(lblBadge);
 
-        // Summary card
-        JPanel summaryCard = UIComponents.createCardPanel();
-        summaryCard.setLayout(new BoxLayout(summaryCard, BoxLayout.Y_AXIS));
+        JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        right.setOpaque(false);
 
-        JLabel lblTitle = UIComponents.createSectionLabel("Executive Dashboard");
-        lblTitle.setAlignmentX(Component.LEFT_ALIGNMENT);
+        User currentUser = SessionManager.getInstance().getCurrentUser();
+        JLabel lblUser = new JLabel("Signed in: " + (currentUser != null ? currentUser.getFullName() : "Principal"));
+        lblUser.setFont(UITheme.FONT_REGULAR);
+        lblUser.setForeground(UITheme.TEXT_MUTED);
 
-        JLabel lblDesc = new JLabel("<html>" +
-                "As Principal you have supreme authority over:<br>" +
-                "• <b>Tier-3 Duty Leave Sanctions</b> — final approval after CFA and HOD review<br>" +
-                "• <b>HOD Appointments</b> — assign or change Heads of Department<br>" +
-                "• <b>Analytics</b> — institution-wide attendance and GPA monitoring<br>" +
-                "• <b>Grievance Redressal</b> — resolve student complaints and disputes" +
-                "</html>");
+        JButton btnLogout = UIComponents.createDangerButton("Log Out");
+        btnLogout.addActionListener(e -> {
+            SessionManager.getInstance().logout();
+            new LandingFrame().setVisible(true);
+            dispose();
+        });
+
+        right.add(lblUser);
+        right.add(btnLogout);
+
+        bar.add(left, BorderLayout.WEST);
+        bar.add(right, BorderLayout.EAST);
+        return bar;
+    }
+
+    private JPanel createOverviewPanel() {
+        JPanel panel = new JPanel(new BorderLayout(16, 16));
+        panel.setOpaque(false);
+        panel.setBorder(new EmptyBorder(20, 24, 20, 24));
+
+        JPanel kpiGrid = new JPanel(new GridLayout(1, 4, 16, 16));
+        kpiGrid.setOpaque(false);
+
+        List<Student> students = studentDAO.getAllStudents();
+        List<Faculty> facultyList = facultyDAO.getAllFaculty();
+        List<Department> departments = departmentDAO.getAllDepartments();
+        List<DutyLeave> leaves = dutyLeaveDAO.getPendingLeavesForPrincipal();
+
+        kpiGrid.add(UIComponents.createStatCard("Total Enrollment", String.valueOf(students.size()), "Registered Students", UITheme.PRIMARY));
+        kpiGrid.add(UIComponents.createStatCard("Faculty Strength", String.valueOf(facultyList.size()), "Teaching Staff", UITheme.INFO));
+        kpiGrid.add(UIComponents.createStatCard("Academic Depts", String.valueOf(departments.size()), "Active Departments", UITheme.SUCCESS));
+        kpiGrid.add(UIComponents.createStatCard("Pending Sanctions", String.valueOf(leaves.size()), "Tier-3 Duty Leaves", UITheme.WARNING));
+
+        panel.add(kpiGrid, BorderLayout.NORTH);
+
+        // Center Welcome Card
+        JPanel centerCard = UIComponents.createCardPanel();
+        centerCard.setLayout(new BoxLayout(centerCard, BoxLayout.Y_AXIS));
+
+        JLabel lblH = new JLabel("Principal Executive Dashboard");
+        lblH.setFont(UITheme.FONT_TITLE);
+        lblH.setForeground(UITheme.TEXT_PRIMARY);
+
+        JLabel lblDesc = new JLabel("<html>As Principal, you have supreme authority over institutional decisions:<br>" +
+                "• <b>Tier-3 Duty Leave Sanctions:</b> Review applications verified by CFAs and endorsed by HODs.<br>" +
+                "• <b>HOD Appointments:</b> Assign or reappoint Department Heads across academic departments.<br>" +
+                "• <b>Performance Analytics:</b> Monitor institution-wide GPA distribution and attendance warnings.<br>" +
+                "• <b>Grievance Redressal:</b> Adjudicate student grievances and record institutional resolutions.</html>");
         lblDesc.setFont(UITheme.FONT_REGULAR);
         lblDesc.setForeground(UITheme.TEXT_MUTED);
-        lblDesc.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        summaryCard.add(lblTitle);
-        summaryCard.add(Box.createVerticalStrut(10));
-        summaryCard.add(lblDesc);
-        summaryCard.add(Box.createVerticalStrut(20));
+        centerCard.add(lblH);
+        centerCard.add(Box.createVerticalStrut(12));
+        centerCard.add(lblDesc);
 
-        // Quick actions row
-        JPanel qaRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
-        qaRow.setOpaque(false);
-        qaRow.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        JButton btnLeave   = UIComponents.createPrimaryButton("📋  Review Duty Leaves");
-        JButton btnDepts   = UIComponents.createSecondaryButton("🏛️  Departments & HOD");
-        JButton btnAnalyt  = UIComponents.createSecondaryButton("📊  Analytics");
-        JButton btnGriev   = UIComponents.createSecondaryButton("⚖️  Grievances");
-
-        btnLeave .addActionListener(e -> showPanel("dutyleave"));
-        btnDepts .addActionListener(e -> showPanel("departments"));
-        btnAnalyt.addActionListener(e -> showPanel("analytics"));
-        btnGriev .addActionListener(e -> showPanel("grievances"));
-
-        qaRow.add(btnLeave);
-        qaRow.add(btnDepts);
-        qaRow.add(btnAnalyt);
-        qaRow.add(btnGriev);
-        summaryCard.add(qaRow);
-
-        JPanel body = new JPanel();
-        body.setLayout(new BoxLayout(body, BoxLayout.Y_AXIS));
-        body.setOpaque(false);
-        body.add(cards);
-        body.add(Box.createVerticalStrut(24));
-        body.add(summaryCard);
-
-        page.add(greeting, BorderLayout.NORTH);
-        page.add(body,     BorderLayout.CENTER);
-        return page;
+        panel.add(centerCard, BorderLayout.CENTER);
+        return panel;
     }
 
-    // =========================================================================
-    // DUTY LEAVE — TIER-3 SANCTIONS
-    // =========================================================================
-    private JPanel buildDutyLeavePanel() {
-        JPanel page = UIComponents.createPagePanel();
-        page.setLayout(new BorderLayout(0, 16));
-        page.add(UIComponents.createHeader("Duty Leave — Tier-3 Sanctions",
-                "Applications endorsed by HOD awaiting your final approval or rejection."),
-                BorderLayout.NORTH);
+    private JPanel createDutyLeaveSanctionsPanel() {
+        JPanel panel = new JPanel(new BorderLayout(12, 12));
+        panel.setOpaque(false);
+        panel.setBorder(new EmptyBorder(16, 20, 16, 20));
 
-        JButton btnApprove = UIComponents.createSuccessButton("✅  Final Sanction — Approve");
-        JButton btnReject  = UIComponents.createDangerButton("❌  Deny / Reject");
-        JButton btnRefresh = UIComponents.createSecondaryButton("↻  Refresh");
+        JPanel toolbar = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        toolbar.setOpaque(false);
 
+        JButton btnApprove = UIComponents.createSuccessButton("✅ Final Sanction (Approve)");
         btnApprove.addActionListener(e -> processDutyLeave(true));
-        btnReject .addActionListener(e -> processDutyLeave(false));
+
+        JButton btnReject = UIComponents.createDangerButton("❌ Deny / Reject");
+        btnReject.addActionListener(e -> processDutyLeave(false));
+
+        JButton btnRefresh = UIComponents.createSecondaryButton("🔄 Refresh");
         btnRefresh.addActionListener(e -> loadDutyLeaves());
 
-        String[] cols = {
-            "App ID", "Student", "Reg No", "Class", "Department",
-            "Reason", "Days", "Dates", "Proof", "CFA Remarks", "HOD Remarks"
-        };
-        leaveModel = new DefaultTableModel(cols, 0);
-        JTable table = UIComponents.createStyledTable(leaveModel);
-        table.getColumnModel().getColumn(0).setPreferredWidth(55);
-        table.getColumnModel().getColumn(1).setPreferredWidth(120);
-        table.getColumnModel().getColumn(2).setPreferredWidth(110);
-        table.getColumnModel().getColumn(3).setPreferredWidth(100);
-        table.getColumnModel().getColumn(4).setPreferredWidth(100);
-        table.getColumnModel().getColumn(5).setPreferredWidth(150);
-        table.getColumnModel().getColumn(6).setPreferredWidth(50);
-        table.getColumnModel().getColumn(7).setPreferredWidth(170);
-        table.getColumnModel().getColumn(8).setPreferredWidth(110);
-        table.getColumnModel().getColumn(9).setPreferredWidth(130);
-        table.getColumnModel().getColumn(10).setPreferredWidth(130);
+        toolbar.add(btnApprove);
+        toolbar.add(btnReject);
+        toolbar.add(btnRefresh);
 
-        JPanel center = new JPanel(new BorderLayout(0, 8));
-        center.setOpaque(false);
-        center.add(UIComponents.createToolbar(btnApprove, btnReject, btnRefresh), BorderLayout.NORTH);
-        center.add(UIComponents.createTableScrollPane(table), BorderLayout.CENTER);
+        String[] cols = {"App ID", "Student", "Register No", "Class", "Department", "Reason", "Days", "Dates", "Proof", "CFA Remarks", "HOD Remarks"};
+        leaveTableModel = new DefaultTableModel(cols, 0);
+        JTable table = UIComponents.createStyledTable(leaveTableModel);
 
-        page.add(center, BorderLayout.CENTER);
-        return page;
+        panel.add(toolbar, BorderLayout.NORTH);
+        panel.add(new JScrollPane(table), BorderLayout.CENTER);
+        return panel;
     }
 
     private void loadDutyLeaves() {
-        if (leaveModel == null) return;
-        leaveModel.setRowCount(0);
+        leaveTableModel.setRowCount(0);
         pendingLeaves = dutyLeaveDAO.getPendingLeavesForPrincipal();
         for (DutyLeave dl : pendingLeaves) {
-            leaveModel.addRow(new Object[]{
-                dl.getId(),
-                dl.getStudentName(),
-                dl.getRegisterNumber(),
-                dl.getClassName(),
-                dl.getDepartmentName(),
-                dl.getReason(),
-                dl.getTotalDays(),
-                dl.getStartDate() + " → " + dl.getEndDate(),
-                dl.getProofDetails(),
-                dl.getAdvisorRemarks()  != null ? dl.getAdvisorRemarks()  : "—",
-                dl.getHodRemarks()      != null ? dl.getHodRemarks()      : "—"
+            leaveTableModel.addRow(new Object[]{
+                    dl.getId(),
+                    dl.getStudentName(),
+                    dl.getRegisterNumber(),
+                    dl.getClassName(),
+                    dl.getDepartmentName(),
+                    dl.getReason(),
+                    dl.getTotalDays(),
+                    dl.getStartDate() + " to " + dl.getEndDate(),
+                    dl.getProofDetails(),
+                    dl.getAdvisorRemarks() != null ? dl.getAdvisorRemarks() : "-",
+                    dl.getHodRemarks() != null ? dl.getHodRemarks() : "-"
             });
         }
     }
 
     private void processDutyLeave(boolean approve) {
         if (pendingLeaves == null || pendingLeaves.isEmpty()) {
-            UIComponents.showError(this, "No pending duty leaves to process.");
+            JOptionPane.showMessageDialog(this, "No pending duty leaves to sanction.", "Info", JOptionPane.INFORMATION_MESSAGE);
             return;
         }
+
         String input = JOptionPane.showInputDialog(this,
                 "Enter Application ID to " + (approve ? "APPROVE" : "REJECT") + ":",
-                approve ? "Approve Duty Leave" : "Reject Duty Leave",
-                JOptionPane.QUESTION_MESSAGE);
+                "Sanction Duty Leave", JOptionPane.QUESTION_MESSAGE);
         if (input == null || input.trim().isEmpty()) return;
 
         try {
             int appId = Integer.parseInt(input.trim());
-            DutyLeave target = pendingLeaves.stream()
-                    .filter(l -> l.getId() == appId).findFirst().orElse(null);
+            DutyLeave target = pendingLeaves.stream().filter(l -> l.getId() == appId).findFirst().orElse(null);
             if (target == null) {
-                UIComponents.showError(this, "Application ID not found in pending list.");
+                JOptionPane.showMessageDialog(this, "Application ID not found in pending list.", "Error", JOptionPane.ERROR_MESSAGE);
                 return;
             }
-            String remarks = JOptionPane.showInputDialog(this,
-                    "Enter Principal Remarks:",
-                    approve ? "Duty Leave Approved by Principal" : "Rejected by Principal");
-            if (remarks == null) remarks = approve ? "Approved" : "Rejected";
+
+            String remarks = JOptionPane.showInputDialog(this, "Enter Principal Sanction Remarks:",
+                    approve ? "Duty Leave Approved" : "Duty Leave Rejected");
+            if (remarks == null) remarks = approve ? "Sanctioned by Principal" : "Rejected by Principal";
 
             String principalUser = SessionManager.getInstance().getCurrentUser().getUsername();
-            boolean ok = dutyLeaveDAO.updatePrincipalDecision(appId, approve, remarks, principalUser);
-            if (ok) {
+            boolean success = dutyLeaveDAO.updatePrincipalDecision(appId, approve, remarks, principalUser);
+
+            if (success) {
                 loadDutyLeaves();
-                UIComponents.showSuccessToast(this,
-                        "Application #" + appId + (approve ? " approved." : " rejected."));
+                JOptionPane.showMessageDialog(this, "Duty leave application " + appId + " successfully " + (approve ? "APPROVED" : "REJECTED") + "!");
             }
         } catch (NumberFormatException ex) {
-            UIComponents.showError(this, "Invalid Application ID.");
+            JOptionPane.showMessageDialog(this, "Invalid Application ID.", "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
-    // =========================================================================
-    // DEPARTMENTS & HOD GOVERNANCE
-    // =========================================================================
-    private JPanel buildDepartmentsPanel() {
-        JPanel page = UIComponents.createPagePanel();
-        page.setLayout(new BorderLayout(0, 16));
-        page.add(UIComponents.createHeader("Departments & HOD Governance",
-                "View departments and appoint or change Heads of Department."),
-                BorderLayout.NORTH);
+    private JPanel createDepartmentGovernancePanel() {
+        JPanel panel = new JPanel(new BorderLayout(12, 12));
+        panel.setOpaque(false);
+        panel.setBorder(new EmptyBorder(16, 20, 16, 20));
 
-        JButton btnAssignHod = UIComponents.createPrimaryButton("👔  Appoint / Change HOD");
-        JButton btnRefresh   = UIComponents.createSecondaryButton("↻  Refresh");
+        JPanel toolbar = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        toolbar.setOpaque(false);
 
+        JButton btnAssignHod = UIComponents.createPrimaryButton("👔 Appoint / Change HOD");
         btnAssignHod.addActionListener(e -> showAssignHodDialog());
-        btnRefresh  .addActionListener(e -> loadDepartments());
 
-        String[] cols = {"Dept ID", "Code", "Department Name", "Current HOD"};
-        deptModel = new DefaultTableModel(cols, 0);
-        JTable table = UIComponents.createStyledTable(deptModel);
-        table.getColumnModel().getColumn(0).setPreferredWidth(70);
-        table.getColumnModel().getColumn(1).setPreferredWidth(80);
-        table.getColumnModel().getColumn(2).setPreferredWidth(220);
-        table.getColumnModel().getColumn(3).setPreferredWidth(200);
+        JButton btnRefresh = UIComponents.createSecondaryButton("🔄 Refresh");
+        btnRefresh.addActionListener(e -> loadDepartments());
 
-        JPanel center = new JPanel(new BorderLayout(0, 8));
-        center.setOpaque(false);
-        center.add(UIComponents.createToolbar(btnAssignHod, btnRefresh), BorderLayout.NORTH);
-        center.add(UIComponents.createTableScrollPane(table), BorderLayout.CENTER);
+        toolbar.add(btnAssignHod);
+        toolbar.add(btnRefresh);
 
-        page.add(center, BorderLayout.CENTER);
-        return page;
+        String[] cols = {"Dept ID", "Code", "Department Name", "Current HOD Name"};
+        deptTableModel = new DefaultTableModel(cols, 0);
+        JTable table = UIComponents.createStyledTable(deptTableModel);
+
+        panel.add(toolbar, BorderLayout.NORTH);
+        panel.add(new JScrollPane(table), BorderLayout.CENTER);
+        return panel;
     }
 
     private void loadDepartments() {
-        if (deptModel == null) return;
-        deptModel.setRowCount(0);
+        deptTableModel.setRowCount(0);
         List<Department> list = departmentDAO.getAllDepartments();
         for (Department d : list) {
-            deptModel.addRow(new Object[]{
-                d.getId(),
-                d.getCode(),
-                d.getName(),
-                d.getHodName() != null ? d.getHodName() : "⚠  Unassigned"
+            deptTableModel.addRow(new Object[]{
+                    d.getId(),
+                    d.getCode(),
+                    d.getName(),
+                    d.getHodName() != null ? d.getHodName() : "⚠️ Unassigned"
             });
         }
     }
 
     private void showAssignHodDialog() {
-        List<Department> depts      = departmentDAO.getAllDepartments();
-        List<Faculty>    facList    = facultyDAO.getAllFaculty();
+        List<Department> depts = departmentDAO.getAllDepartments();
+        List<Faculty> facultyList = facultyDAO.getAllFaculty();
 
-        if (depts.isEmpty() || facList.isEmpty()) {
-            UIComponents.showError(this, "No departments or faculty available.");
+        if (depts.isEmpty() || facultyList.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "No departments or faculty available.", "Error", JOptionPane.ERROR_MESSAGE);
             return;
         }
 
-        JDialog dlg = new JDialog(this, "Appoint Head of Department", true);
-        dlg.setSize(460, 260);
-        dlg.setLocationRelativeTo(this);
-        dlg.getContentPane().setBackground(UITheme.BG);
-        dlg.setLayout(new BorderLayout());
+        JComboBox<Department> cmbDept = new JComboBox<>(depts.toArray(new Department[0]));
+        JComboBox<Faculty> cmbFac = new JComboBox<>(facultyList.toArray(new Faculty[0]));
 
-        JPanel form = new JPanel();
-        form.setLayout(new BoxLayout(form, BoxLayout.Y_AXIS));
-        form.setBackground(UITheme.SURFACE);
-        form.setBorder(new EmptyBorder(28, 32, 20, 32));
+        JPanel p = new JPanel(new GridLayout(2, 2, 8, 8));
+        p.add(new JLabel("Department:"));
+        p.add(cmbDept);
+        p.add(new JLabel("Appoint Faculty as HOD:"));
+        p.add(cmbFac);
 
-        JComboBox<Department> cmbDept = UIComponents.createComboBox(depts.toArray(new Department[0]));
-        JComboBox<Faculty>    cmbFac  = UIComponents.createComboBox(facList.toArray(new Faculty[0]));
-
-        addFRow(form, "Department",          cmbDept);
-        form.add(Box.createVerticalStrut(14));
-        addFRow(form, "Appoint as HOD",      cmbFac);
-
-        JPanel footer = buildDlgFooter(dlg, () -> {
+        int result = JOptionPane.showConfirmDialog(this, p, "Appoint Head of Department (HOD)", JOptionPane.OK_CANCEL_OPTION);
+        if (result == JOptionPane.OK_OPTION) {
             Department selDept = (Department) cmbDept.getSelectedItem();
-            Faculty    selFac  = (Faculty)    cmbFac.getSelectedItem();
-            if (selDept == null || selFac == null) return;
-            departmentDAO.updateHod(selDept.getId(), selFac.getId());
-            loadDepartments();
-            dlg.dispose();
-            UIComponents.showSuccessToast(this,
-                    selFac.getFullName() + " appointed as HOD of " + selDept.getName());
-        });
-
-        dlg.add(form,   BorderLayout.CENTER);
-        dlg.add(footer, BorderLayout.SOUTH);
-        dlg.setVisible(true);
+            Faculty selFac = (Faculty) cmbFac.getSelectedItem();
+            if (selDept != null && selFac != null) {
+                departmentDAO.updateHod(selDept.getId(), selFac.getId());
+                loadDepartments();
+                JOptionPane.showMessageDialog(this, "Successfully appointed " + selFac.getFullName() + " as HOD of " + selDept.getName());
+            }
+        }
     }
 
-    // =========================================================================
-    // ACADEMIC ANALYTICS
-    // =========================================================================
-    private JPanel buildAnalyticsPanel() {
-        JPanel page = UIComponents.createPagePanel();
-        page.setLayout(new BorderLayout(0, 16));
-        page.add(UIComponents.createHeader("Academic Analytics",
-                "College-wide student performance, attendance, and GPA overview."),
-                BorderLayout.NORTH);
+    private JPanel createAcademicAnalyticsPanel() {
+        JPanel panel = new JPanel(new BorderLayout(12, 12));
+        panel.setOpaque(false);
+        panel.setBorder(new EmptyBorder(16, 20, 16, 20));
 
-        JButton btnRefresh = UIComponents.createSecondaryButton("↻  Refresh");
-        btnRefresh.addActionListener(e -> loadAnalytics());
+        JPanel toolbar = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        toolbar.setOpaque(false);
 
-        // Summary stat row above the table
-        List<Student> allStudents = studentDAO.getAllStudents();
-        long shortage  = allStudents.stream().filter(s -> s.getAttendancePercentage() < 75.0).count();
-        double avgCgpa = allStudents.stream()
-                .mapToDouble(Student::getCurrentCgpa).average().orElse(0.0);
-        long above8    = allStudents.stream().filter(s -> s.getCurrentCgpa() >= 8.0).count();
+        JButton btnRefresh = UIComponents.createSecondaryButton("🔄 Refresh Analytics");
+        btnRefresh.addActionListener(e -> loadAcademicAnalytics());
+        toolbar.add(btnRefresh);
 
-        JPanel summaryCards = new JPanel(new GridLayout(1, 3, 16, 0));
-        summaryCards.setOpaque(false);
-        summaryCards.add(UIComponents.createStatCard("Total Students",     String.valueOf(allStudents.size()), "All departments",         UITheme.PRIMARY));
-        summaryCards.add(UIComponents.createStatCard("Attendance Shortage",String.valueOf(shortage),           "Below 75% threshold",     shortage > 0 ? UITheme.DANGER : UITheme.SUCCESS));
-        summaryCards.add(UIComponents.createStatCard("Average CGPA",       String.format("%.2f", avgCgpa),     above8 + " students ≥ 8.0",UITheme.INFO));
+        String[] cols = {"Register No", "Roll", "Student Name", "Class", "Department", "Semester", "Attendance %", "SGPA", "CGPA"};
+        analyticsTableModel = new DefaultTableModel(cols, 0);
+        JTable table = UIComponents.createStyledTable(analyticsTableModel);
 
-        String[] cols = {
-            "Reg No", "Roll", "Name", "Class", "Department",
-            "Semester", "Attendance %", "SGPA", "CGPA"
-        };
-        analyticsModel = new DefaultTableModel(cols, 0);
-        JTable table   = UIComponents.createStyledTable(analyticsModel);
-        table.getColumnModel().getColumn(0).setPreferredWidth(110);
-        table.getColumnModel().getColumn(1).setPreferredWidth(60);
-        table.getColumnModel().getColumn(2).setPreferredWidth(150);
-        table.getColumnModel().getColumn(3).setPreferredWidth(100);
-        table.getColumnModel().getColumn(4).setPreferredWidth(120);
-        table.getColumnModel().getColumn(5).setPreferredWidth(70);
-        table.getColumnModel().getColumn(6).setPreferredWidth(100);
-        table.getColumnModel().getColumn(7).setPreferredWidth(70);
-        table.getColumnModel().getColumn(8).setPreferredWidth(70);
-
-        JPanel center = new JPanel(new BorderLayout(0, 16));
-        center.setOpaque(false);
-        center.add(summaryCards, BorderLayout.NORTH);
-
-        JPanel tableWrapper = new JPanel(new BorderLayout(0, 8));
-        tableWrapper.setOpaque(false);
-        tableWrapper.add(UIComponents.createToolbar(btnRefresh), BorderLayout.NORTH);
-        tableWrapper.add(UIComponents.createTableScrollPane(table), BorderLayout.CENTER);
-        center.add(tableWrapper, BorderLayout.CENTER);
-
-        page.add(center, BorderLayout.CENTER);
-        return page;
+        panel.add(toolbar, BorderLayout.NORTH);
+        panel.add(new JScrollPane(table), BorderLayout.CENTER);
+        return panel;
     }
 
-    private void loadAnalytics() {
-        if (analyticsModel == null) return;
-        analyticsModel.setRowCount(0);
+    private void loadAcademicAnalytics() {
+        analyticsTableModel.setRowCount(0);
         List<Student> students = studentDAO.getAllStudents();
         for (Student s : students) {
-            analyticsModel.addRow(new Object[]{
-                s.getRegisterNumber(),
-                s.getRollNumber(),
-                s.getFullName(),
-                s.getClassName(),
-                s.getDepartmentName(),
-                s.getSemester(),
-                s.getAttendancePercentage() + "%",
-                s.getCurrentSgpa(),
-                s.getCurrentCgpa()
+            analyticsTableModel.addRow(new Object[]{
+                    s.getRegisterNumber(),
+                    s.getRollNumber(),
+                    s.getFullName(),
+                    s.getClassName(),
+                    s.getDepartmentName(),
+                    s.getSemester(),
+                    s.getAttendancePercentage() + "%",
+                    s.getCurrentSgpa(),
+                    s.getCurrentCgpa()
             });
         }
     }
 
-    // =========================================================================
-    // GRIEVANCE REDRESSAL
-    // =========================================================================
-    private JPanel buildGrievancesPanel() {
-        JPanel page = UIComponents.createPagePanel();
-        page.setLayout(new BorderLayout(0, 16));
-        page.add(UIComponents.createHeader("Grievance Redressal",
-                "Review and adjudicate student grievances at the institutional level."),
-                BorderLayout.NORTH);
+    private JPanel createGrievanceOversightPanel() {
+        JPanel panel = new JPanel(new BorderLayout(12, 12));
+        panel.setOpaque(false);
+        panel.setBorder(new EmptyBorder(16, 20, 16, 20));
 
-        JButton btnResolve = UIComponents.createPrimaryButton("⚖️  Adjudicate Selected");
-        JButton btnRefresh = UIComponents.createSecondaryButton("↻  Refresh");
+        JPanel toolbar = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        toolbar.setOpaque(false);
 
+        JButton btnResolve = UIComponents.createPrimaryButton("⚖️ Adjudicate / Resolve Grievance");
         btnResolve.addActionListener(e -> showResolveGrievanceDialog());
+
+        JButton btnRefresh = UIComponents.createSecondaryButton("🔄 Refresh");
         btnRefresh.addActionListener(e -> loadGrievances());
 
-        String[] cols = {"ID", "Student", "Reg No", "Category", "Title", "Status", "Resolution", "Resolved By"};
-        grievModel = new DefaultTableModel(cols, 0);
-        JTable table = UIComponents.createStyledTable(grievModel);
-        table.getColumnModel().getColumn(0).setPreferredWidth(50);
-        table.getColumnModel().getColumn(1).setPreferredWidth(130);
-        table.getColumnModel().getColumn(2).setPreferredWidth(110);
-        table.getColumnModel().getColumn(3).setPreferredWidth(100);
-        table.getColumnModel().getColumn(4).setPreferredWidth(180);
-        table.getColumnModel().getColumn(5).setPreferredWidth(100);
-        table.getColumnModel().getColumn(6).setPreferredWidth(200);
-        table.getColumnModel().getColumn(7).setPreferredWidth(120);
+        toolbar.add(btnResolve);
+        toolbar.add(btnRefresh);
 
-        JPanel center = new JPanel(new BorderLayout(0, 8));
-        center.setOpaque(false);
-        center.add(UIComponents.createToolbar(btnResolve, btnRefresh), BorderLayout.NORTH);
-        center.add(UIComponents.createTableScrollPane(table), BorderLayout.CENTER);
+        String[] cols = {"ID", "Student", "Register No", "Category", "Title", "Status", "Resolution", "Resolved By"};
+        grievanceTableModel = new DefaultTableModel(cols, 0);
+        JTable table = UIComponents.createStyledTable(grievanceTableModel);
 
-        page.add(center, BorderLayout.CENTER);
-        return page;
+        panel.add(toolbar, BorderLayout.NORTH);
+        panel.add(new JScrollPane(table), BorderLayout.CENTER);
+        return panel;
     }
 
     private void loadGrievances() {
-        if (grievModel == null) return;
-        grievModel.setRowCount(0);
+        grievanceTableModel.setRowCount(0);
         allGrievances = grievanceDAO.getAllGrievances();
         for (Grievance g : allGrievances) {
-            grievModel.addRow(new Object[]{
-                g.getId(),
-                g.getStudentName(),
-                g.getRegisterNumber(),
-                g.getCategory().getLabel(),
-                g.getTitle(),
-                g.getStatus().getLabel(),
-                g.getResolution()         != null ? g.getResolution()         : "Pending",
-                g.getResolvedByUserName() != null ? g.getResolvedByUserName() : "—"
+            grievanceTableModel.addRow(new Object[]{
+                    g.getId(),
+                    g.getStudentName(),
+                    g.getRegisterNumber(),
+                    g.getCategory().getLabel(),
+                    g.getTitle(),
+                    g.getStatus().getLabel(),
+                    g.getResolution() != null ? g.getResolution() : "Pending",
+                    g.getResolvedByUserName() != null ? g.getResolvedByUserName() : "-"
             });
         }
     }
 
     private void showResolveGrievanceDialog() {
-        String input = JOptionPane.showInputDialog(this,
-                "Enter Grievance ID to adjudicate:", "Adjudicate Grievance", JOptionPane.QUESTION_MESSAGE);
+        String input = JOptionPane.showInputDialog(this, "Enter Grievance ID to Resolve / Dismiss:", "Adjudicate Grievance", JOptionPane.QUESTION_MESSAGE);
         if (input == null || input.trim().isEmpty()) return;
 
         try {
             int gid = Integer.parseInt(input.trim());
-
-            JDialog dlg = new JDialog(this, "Adjudicate Grievance #" + gid, true);
-            dlg.setSize(460, 300);
-            dlg.setLocationRelativeTo(this);
-            dlg.getContentPane().setBackground(UITheme.BG);
-            dlg.setLayout(new BorderLayout());
-
-            JPanel form = new JPanel();
-            form.setLayout(new BoxLayout(form, BoxLayout.Y_AXIS));
-            form.setBackground(UITheme.SURFACE);
-            form.setBorder(new EmptyBorder(24, 28, 16, 28));
-
-            JComboBox<Grievance.Status> cmbStatus = UIComponents.createComboBox(
-                    new Grievance.Status[]{
-                        Grievance.Status.RESOLVED,
-                        Grievance.Status.UNDER_REVIEW,
-                        Grievance.Status.DISMISSED
-                    });
-
-            JTextArea txtRes = new JTextArea(4, 30);
-            txtRes.setFont(UITheme.FONT_REGULAR);
+            JComboBox<Grievance.Status> cmbStatus = new JComboBox<>(new Grievance.Status[]{Grievance.Status.RESOLVED, Grievance.Status.UNDER_REVIEW, Grievance.Status.DISMISSED});
+            JTextArea txtRes = new JTextArea(4, 25);
             txtRes.setLineWrap(true);
-            txtRes.setBorder(BorderFactory.createCompoundBorder(
-                    new LineBorder(UITheme.BORDER, 1),
-                    new EmptyBorder(8, 10, 8, 10)));
 
-            addFRow(form, "New Status", cmbStatus);
-            form.add(Box.createVerticalStrut(12));
-            JLabel lblRes = UIComponents.createFormLabel("Resolution Notes");
-            lblRes.setAlignmentX(Component.LEFT_ALIGNMENT);
-            form.add(lblRes);
-            form.add(Box.createVerticalStrut(4));
-            JScrollPane resSp = new JScrollPane(txtRes);
-            resSp.setAlignmentX(Component.LEFT_ALIGNMENT);
-            resSp.setMaximumSize(new Dimension(Integer.MAX_VALUE, 100));
-            form.add(resSp);
+            JPanel p = new JPanel(new BorderLayout(8, 8));
+            p.add(cmbStatus, BorderLayout.NORTH);
+            p.add(new JScrollPane(txtRes), BorderLayout.CENTER);
 
-            JPanel footer = buildDlgFooter(dlg, () -> {
+            int opt = JOptionPane.showConfirmDialog(this, p, "Action & Resolution Notes", JOptionPane.OK_CANCEL_OPTION);
+            if (opt == JOptionPane.OK_OPTION) {
                 User u = SessionManager.getInstance().getCurrentUser();
-                grievanceDAO.updateResolution(
-                        gid,
-                        (Grievance.Status) cmbStatus.getSelectedItem(),
-                        txtRes.getText().trim(),
-                        u.getId(),
-                        u.getUsername());
+                grievanceDAO.updateResolution(gid, (Grievance.Status) cmbStatus.getSelectedItem(), txtRes.getText().trim(), u.getId(), u.getUsername());
                 loadGrievances();
-                dlg.dispose();
-                UIComponents.showSuccessToast(this, "Grievance #" + gid + " status updated.");
-            });
-
-            dlg.add(form,   BorderLayout.CENTER);
-            dlg.add(footer, BorderLayout.SOUTH);
-            dlg.setVisible(true);
-
+                JOptionPane.showMessageDialog(this, "Grievance status successfully updated.");
+            }
         } catch (NumberFormatException ex) {
-            UIComponents.showError(this, "Invalid Grievance ID.");
+            JOptionPane.showMessageDialog(this, "Invalid Grievance ID.", "Error", JOptionPane.ERROR_MESSAGE);
         }
-    }
-
-    // =========================================================================
-    // HELPERS
-    // =========================================================================
-    private void addFRow(JPanel panel, String labelText, JComponent field) {
-        JLabel lbl = UIComponents.createFormLabel(labelText);
-        lbl.setAlignmentX(Component.LEFT_ALIGNMENT);
-        field.setAlignmentX(Component.LEFT_ALIGNMENT);
-        field.setMaximumSize(new Dimension(Integer.MAX_VALUE, 38));
-        panel.add(lbl);
-        panel.add(Box.createVerticalStrut(4));
-        panel.add(field);
-    }
-
-    private JPanel buildDlgFooter(JDialog dlg, Runnable onSubmit) {
-        JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 10));
-        footer.setBackground(UITheme.SURFACE);
-        footer.setBorder(new MatteBorder(1, 0, 0, 0, UITheme.BORDER));
-        JButton btnCancel = UIComponents.createSecondaryButton("Cancel");
-        JButton btnSubmit = UIComponents.createPrimaryButton("Confirm");
-        btnCancel.addActionListener(e -> dlg.dispose());
-        btnSubmit.addActionListener(e -> onSubmit.run());
-        footer.add(btnCancel);
-        footer.add(btnSubmit);
-        return footer;
     }
 
     private void loadAllData() {
         loadDutyLeaves();
         loadDepartments();
-        loadAnalytics();
+        loadAcademicAnalytics();
         loadGrievances();
     }
 }

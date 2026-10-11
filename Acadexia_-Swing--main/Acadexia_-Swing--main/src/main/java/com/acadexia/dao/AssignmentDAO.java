@@ -36,10 +36,12 @@ public class AssignmentDAO {
         String sql = """
             SELECT a.*, s.code AS subject_code, s.name AS subject_name,
                    c.name AS class_name, u.full_name AS faculty_name,
-                   (SELECT COUNT(*) FROM assignment_submissions sub WHERE sub.assignment_id = a.id) AS total_submissions,
+                    (SELECT COUNT(*) FROM assignment_submissions sub WHERE sub.assignment_id = a.id) AS total_submissions,
                    (SELECT COUNT(*) FROM students stu WHERE stu.class_id = a.class_id) AS total_students,
                    sub_cur.status AS student_sub_status,
-                   sub_cur.marks_obtained AS student_marks
+                   sub_cur.marks_obtained AS student_marks,
+                   sub_cur.submission_date AS student_submission_date,
+                   sub_cur.faculty_feedback AS student_faculty_feedback
             FROM assignments a
             JOIN subjects s ON a.subject_id = s.id
             JOIN classes c ON a.class_id = c.id
@@ -76,10 +78,13 @@ public class AssignmentDAO {
                     a.setTotalSubmissions(rs.getInt("total_submissions"));
                     a.setTotalStudents(rs.getInt("total_students"));
                     String subStatus = rs.getString("student_sub_status");
+                    a.setSubmissionStatus(subStatus != null ? subStatus : "PENDING");
                     a.setSubmittedByCurrentStudent(subStatus != null && !subStatus.equalsIgnoreCase("PENDING"));
                     if (rs.getObject("student_marks") != null) {
                         a.setMarksAwarded(rs.getDouble("student_marks"));
                     }
+                    a.setSubmissionDate(rs.getTimestamp("student_submission_date"));
+                    a.setFacultyFeedback(rs.getString("student_faculty_feedback"));
                     list.add(a);
                 }
             }

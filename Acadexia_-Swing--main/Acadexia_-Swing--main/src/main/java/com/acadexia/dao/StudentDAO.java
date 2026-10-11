@@ -16,8 +16,8 @@ public class StudentDAO {
                    d.name AS department_name
             FROM students s
             JOIN users u ON s.user_id = u.id
-            JOIN classes c ON s.class_id = c.id
-            JOIN departments d ON c.department_id = d.id
+            LEFT JOIN classes c ON s.class_id = c.id
+            LEFT JOIN departments d ON c.department_id = d.id
             WHERE s.user_id = ?
             """;
         try (Connection conn = DatabaseConnection.getConnection();
@@ -36,6 +36,33 @@ public class StudentDAO {
         return null;
     }
 
+    public Student getById(int id) {
+        String sql = """
+            SELECT s.*, u.full_name, u.email, u.phone, 
+                   c.name AS class_name, c.semester, c.department_id,
+                   d.name AS department_name
+            FROM students s
+            JOIN users u ON s.user_id = u.id
+            LEFT JOIN classes c ON s.class_id = c.id
+            LEFT JOIN departments d ON c.department_id = d.id
+            WHERE s.id = ?
+            """;
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    Student s = mapResultSetToStudent(rs);
+                    enrichStudentMetrics(s, conn);
+                    return s;
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error fetching student by ID: " + e.getMessage());
+        }
+        return null;
+    }
+
     public Student getByRegisterNumber(String registerNumber) {
         String sql = """
             SELECT s.*, u.full_name, u.email, u.phone, 
@@ -43,8 +70,8 @@ public class StudentDAO {
                    d.name AS department_name
             FROM students s
             JOIN users u ON s.user_id = u.id
-            JOIN classes c ON s.class_id = c.id
-            JOIN departments d ON c.department_id = d.id
+            LEFT JOIN classes c ON s.class_id = c.id
+            LEFT JOIN departments d ON c.department_id = d.id
             WHERE s.register_number = ?
             """;
         try (Connection conn = DatabaseConnection.getConnection();
@@ -129,8 +156,8 @@ public class StudentDAO {
                    d.name AS department_name
             FROM students s
             JOIN users u ON s.user_id = u.id
-            JOIN classes c ON s.class_id = c.id
-            JOIN departments d ON c.department_id = d.id
+            LEFT JOIN classes c ON s.class_id = c.id
+            LEFT JOIN departments d ON c.department_id = d.id
             ORDER BY d.name, c.semester, CAST(s.roll_number AS UNSIGNED)
             """;
         try (Connection conn = DatabaseConnection.getConnection();
@@ -173,6 +200,114 @@ public class StudentDAO {
         }
         return -1;
     }
+
+    public int getTotalStudentCount() {
+        String sql = "SELECT COUNT(*) FROM students";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            if (rs.next()) return rs.getInt(1);
+        } catch (SQLException e) {
+            System.err.println("Error fetching total student count: " + e.getMessage());
+        }
+        return 0;
+    }
+
+
+    public String generateNextRegisterNumber(int admissionYear, String deptCode) {
+        String cleanDept = (deptCode != null && !deptCode.trim().isEmpty()) ? deptCode.trim().toUpperCase() : "CS";
+        if (cleanDept.equals("CSE")) cleanDept = "CS";
+        String prefix = "REG" + admissionYear + cleanDept;
+        String sql = "SELECT register_number FROM students WHERE register_number LIKE ? ORDER BY register_number DESC LIMIT 1";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, prefix + "%");
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    String lastReg = rs.getString("register_number");
+                    if (lastReg != null && lastReg.length() >= prefix.length() + 3) {
+                        String numPart = lastReg.substring(prefix.length());
+                        try {
+                            int nextSeq = Integer.parseInt(numPart) + 1;
+                            return prefix + String.format("%03d", nextSeq);
+                        } catch (NumberFormatException ignored) {}
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error generating next register number: " + e.getMessage());
+        }
+        return prefix + "001";
+    }
+
+    public String getNextRollNumber(int classId) {
+        String sql = "SELECT MAX(CAST(roll_number AS UNSIGNED)) FROM students WHERE class_id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, classId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    int maxRoll = rs.getInt(1);
+                    return String.format("%02d", maxRoll + 1);
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error fetching next roll number: " + e.getMessage());
+        }
+        return "01";
+    }
+
+    public boolean updateStudent(Student s) {
+        String updateStudentSql = """
+            UPDATE students 
+            SET roll_number = ?, class_id = ?, admission_year = ?, guardian_name = ?, guardian_phone = ?
+            WHERE id = ?
+            """;
+        String updateUserSql = "UPDATE users SET full_name = ?, email = ?, phone = ? WHERE id = ?";
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            conn.setAutoCommit(false);
+            try (PreparedStatement psStu = conn.prepareStatement(updateStudentSql);
+                 PreparedStatement psUser = conn.prepareStatement(updateUserSql)) {
+                psStu.setString(1, s.getRollNumber().trim());
+                psStu.setInt(2, s.getClassId());
+                psStu.setInt(3, s.getAdmissionYear());
+                psStu.setString(4, s.getGuardianName());
+                psStu.setString(5, s.getGuardianPhone());
+                psStu.setInt(6, s.getId());
+                psStu.executeUpdate();
+
+                psUser.setString(1, s.getFullName().trim());
+                psUser.setString(2, s.getEmail() != null ? s.getEmail().trim() : null);
+                psUser.setString(3, s.getPhone() != null ? s.getPhone().trim() : null);
+                psUser.setInt(4, s.getUserId());
+                psUser.executeUpdate();
+
+                conn.commit();
+                return true;
+            } catch (SQLException ex) {
+                conn.rollback();
+                throw ex;
+            } finally {
+                conn.setAutoCommit(true);
+            }
+        } catch (SQLException e) {
+            System.err.println("Error updating student: " + e.getMessage());
+            return false;
+        }
+    }
+
+    public boolean deleteStudent(int studentId) {
+        String sql = "DELETE FROM users WHERE id = (SELECT user_id FROM students WHERE id = ?)";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, studentId);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("Error deleting student: " + e.getMessage());
+            return false;
+        }
+    }
+
 
     /**
      * Dynamically calculates the student's attendance percentage and SGPA/CGPA.
@@ -250,11 +385,10 @@ public class StudentDAO {
         s.setGuardianPhone(rs.getString("guardian_phone"));
         s.setFullName(rs.getString("full_name"));
         s.setEmail(rs.getString("email"));
-        s.setPhone(rs.getString("phone"));
-        s.setClassName(rs.getString("class_name"));
+        s.setClassName(rs.getString("class_name") != null ? rs.getString("class_name") : "Assigned Class");
         s.setSemester(rs.getInt("semester"));
         s.setDepartmentId(rs.getInt("department_id"));
-        s.setDepartmentName(rs.getString("department_name"));
+        s.setDepartmentName(rs.getString("department_name") != null ? rs.getString("department_name") : "-");
         return s;
     }
 }

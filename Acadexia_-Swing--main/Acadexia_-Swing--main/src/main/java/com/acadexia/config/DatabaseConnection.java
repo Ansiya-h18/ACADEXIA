@@ -89,7 +89,50 @@ public final class DatabaseConnection {
             executeSchemaScript();
         }
 
+        // Step 3: Ensure role column includes PARENT enum value in existing databases
+        try (Connection conn = DriverManager.getConnection(dbUrl, dbUser, dbPass);
+             Statement stmt = conn.createStatement()) {
+            stmt.executeUpdate("ALTER TABLE users MODIFY COLUMN role ENUM('STUDENT', 'FACULTY', 'PRINCIPAL', 'ADMIN', 'PARENT') NOT NULL");
+        } catch (SQLException ex) {
+            // Ignored if already aligned
+        }
+
+        try (Connection conn = DriverManager.getConnection(dbUrl, dbUser, dbPass);
+             Statement stmt = conn.createStatement()) {
+            String pubTableSql = """
+                CREATE TABLE IF NOT EXISTS result_publications (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    class_id INT NOT NULL,
+                    subject_id INT NOT NULL,
+                    exam_type ENUM('SERIES_1', 'SERIES_2', 'ASSIGNMENT', 'INTERNAL', 'SEMESTER_EXAM') NOT NULL,
+                    academic_year VARCHAR(20) NOT NULL,
+                    status ENUM('ENTERED', 'VERIFIED', 'PUBLISHED') NOT NULL DEFAULT 'ENTERED',
+                    verified_by_user_id INT NULL,
+                    published_by_user_id INT NULL,
+                    published_at TIMESTAMP NULL,
+                    remarks VARCHAR(255) NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE,
+                    FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE,
+                    FOREIGN KEY (verified_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
+                    FOREIGN KEY (published_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
+                    UNIQUE KEY uq_pub (class_id, subject_id, exam_type, academic_year)
+                )
+                """;
+            stmt.executeUpdate(pubTableSql);
+        } catch (SQLException ex) {
+            // Ignored if already created
+        }
+
         initialized = true;
+
+        // Step 4: Auto seed starter records & parent portal records if empty
+        try {
+            DatabaseSeeder.seedIfEmpty();
+        } catch (Exception e) {
+            System.err.println("Notice during automatic seeding: " + e.getMessage());
+        }
     }
 
     /**

@@ -23,7 +23,7 @@ public class UserDAO {
 
         String trimmedId = identifier.trim();
 
-        // 100% Parameterized query joining users, students, and faculty
+        // 100% Parameterized query joining users, students, faculty, and parents
         String sql = """
             SELECT u.*, 
                    s.register_number, 
@@ -31,8 +31,14 @@ public class UserDAO {
             FROM users u
             LEFT JOIN students s ON u.id = s.user_id
             LEFT JOIN faculty f ON u.id = f.user_id
+            LEFT JOIN parents p ON u.id = p.user_id
             WHERE u.is_active = TRUE 
-              AND (u.username = ? OR u.email = ? OR s.register_number = ? OR f.faculty_id = ?)
+              AND (LOWER(u.username) = LOWER(?) 
+                   OR LOWER(u.email) = LOWER(?) 
+                   OR u.phone = ? 
+                   OR (p.emergency_contact IS NOT NULL AND p.emergency_contact = ?)
+                   OR s.register_number = ? 
+                   OR f.faculty_id = ?)
             LIMIT 1
             """;
 
@@ -43,6 +49,8 @@ public class UserDAO {
             ps.setString(2, trimmedId);
             ps.setString(3, trimmedId);
             ps.setString(4, trimmedId);
+            ps.setString(5, trimmedId);
+            ps.setString(6, trimmedId);
 
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -159,22 +167,36 @@ public class UserDAO {
         return list;
     }
 
-    /**
-     * Checks whether a username already exists in the users table.
-     * Used during registration to prevent duplicate usernames.
-     */
-    public boolean usernameExists(String username) {
-        String sql = "SELECT COUNT(*) FROM users WHERE username = ?";
+    public boolean updateUserDetails(int userId, String fullName, String email, String phone, Integer departmentId) {
+        String sql = "UPDATE users SET full_name = ?, email = ?, phone = ?, department_id = ? WHERE id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, username.trim());
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) return rs.getInt(1) > 0;
+            ps.setString(1, fullName.trim());
+            ps.setString(2, email != null && !email.trim().isEmpty() ? email.trim() : null);
+            ps.setString(3, phone != null && !phone.trim().isEmpty() ? phone.trim() : null);
+            if (departmentId != null) {
+                ps.setInt(4, departmentId);
+            } else {
+                ps.setNull(4, Types.INTEGER);
             }
+            ps.setInt(5, userId);
+            return ps.executeUpdate() > 0;
         } catch (SQLException e) {
-            System.err.println("Error checking username existence: " + e.getMessage());
+            System.err.println("Error updating user details: " + e.getMessage());
+            return false;
         }
-        return false;
+    }
+
+    public boolean deleteUser(int userId) {
+        String sql = "DELETE FROM users WHERE id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, userId);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("Error deleting user: " + e.getMessage());
+            return false;
+        }
     }
 
     private User mapResultSetToUser(ResultSet rs) throws SQLException {
@@ -195,3 +217,4 @@ public class UserDAO {
         return u;
     }
 }
+
