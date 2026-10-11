@@ -121,6 +121,41 @@ public final class DatabaseConnection {
                 )
                 """;
             stmt.executeUpdate(pubTableSql);
+
+            String announcementTableSql = """
+                CREATE TABLE IF NOT EXISTS announcements (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    title VARCHAR(200) NOT NULL,
+                    content TEXT NOT NULL,
+                    category ENUM('GENERAL', 'ACADEMIC', 'EXAMINATION', 'EVENT', 'URGENT', 'CIRCULAR') NOT NULL DEFAULT 'GENERAL',
+                    target_audience ENUM('ALL', 'FACULTY', 'STUDENTS', 'PARENTS') NOT NULL DEFAULT 'ALL',
+                    pinned BOOLEAN DEFAULT FALSE,
+                    posted_by_user_id INT NULL,
+                    posted_date DATE NOT NULL,
+                    expiry_date DATE NULL,
+                    attachment_note VARCHAR(255) NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (posted_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+                )
+                """;
+            stmt.executeUpdate(announcementTableSql);
+
+            String calendarTableSql = """
+                CREATE TABLE IF NOT EXISTS academic_calendar (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    event_title VARCHAR(200) NOT NULL,
+                    event_type ENUM('EXAM', 'HOLIDAY', 'ACADEMIC_MILESTONE', 'MEETING', 'CULTURAL_SPORTS', 'DEADLINE') NOT NULL DEFAULT 'ACADEMIC_MILESTONE',
+                    start_date DATE NOT NULL,
+                    end_date DATE NULL,
+                    description TEXT NULL,
+                    target_audience ENUM('ALL', 'FACULTY', 'STUDENTS', 'PARENTS') NOT NULL DEFAULT 'ALL',
+                    semester_applicable VARCHAR(50) NULL,
+                    created_by_user_id INT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+                )
+                """;
+            stmt.executeUpdate(calendarTableSql);
         } catch (SQLException ex) {
             // Ignored if already created
         }

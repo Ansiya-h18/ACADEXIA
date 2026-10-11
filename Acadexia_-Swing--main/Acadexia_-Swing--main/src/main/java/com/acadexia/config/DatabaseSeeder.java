@@ -26,6 +26,8 @@ public final class DatabaseSeeder {
 
             if (userCount > 0) {
                 seedParentsAndExtendedModulesIfEmpty(conn);
+                seedAnnouncementsIfEmpty(conn);
+                seedAcademicCalendarIfEmpty(conn);
                 return; // Database already seeded
             }
 
@@ -193,6 +195,8 @@ public final class DatabaseSeeder {
 
             // 15. Seed Parent Demo Accounts and Extended Modules
             seedParentsAndExtendedModulesIfEmpty(conn);
+            seedAnnouncementsIfEmpty(conn);
+            seedAcademicCalendarIfEmpty(conn);
 
             AuditLogDAO.log(adminUser.getId(), "SYSTEM", "ADMIN", "DATABASE_SEEDED", "SYSTEM", null,
                     "Default college hierarchy, departments, faculty, and sample batch seeded successfully.", AuditLog.Severity.INFO);
@@ -761,5 +765,179 @@ public final class DatabaseSeeder {
             System.err.println("Notice seeding notifications: " + e.getMessage());
         }
     }
+
+    public static void seedAnnouncementsIfEmpty(Connection conn) {
+        try {
+            int count = 0;
+            try (Statement st = conn.createStatement();
+                 ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM announcements")) {
+                if (rs.next()) count = rs.getInt(1);
+            } catch (SQLException ex) {
+                return;
+            }
+            if (count > 0) return;
+
+            AnnouncementDAO dao = new AnnouncementDAO();
+
+            Announcement a1 = new Announcement();
+            a1.setTitle("Executive Order: Mandatory 75% Attendance Compliance for Examination Hall Ticket Issuance");
+            a1.setContent("Pursuant to Academic Regulation Section 4.2, all enrolled undergraduate students must maintain a minimum aggregate attendance of 75% across all registered subjects to qualify for End-Semester Examinations. Students with attendance between 65%-74% due to verified medical emergencies must submit condonation requests to CFA before October 25, 2026.");
+            a1.setCategory(Announcement.Category.CIRCULAR);
+            a1.setTargetAudience("ALL");
+            a1.setPinned(true);
+            a1.setPostedByUserId(1); // Principal
+            a1.setPostedDate(Date.valueOf("2026-10-05"));
+            a1.setExpiryDate(Date.valueOf("2026-11-30"));
+            a1.setAttachmentNote("Office of the Principal Directive No. ACAD/2026/OCT-01");
+            dao.createAnnouncement(a1, "principal");
+
+            Announcement a2 = new Announcement();
+            a2.setTitle("Series-2 Continuous Internal Assessment Schedule & Portions Consolidation");
+            a2.setContent("The Series-2 Internal Examinations for Semester 5 are scheduled from October 20 to October 25, 2026. All faculty members must ensure completion of 80% syllabus modules and post question paper blueprints to the Exam Cell by October 15, 2026. Students are advised to review the Exam Scheduling tab.");
+            a2.setCategory(Announcement.Category.EXAMINATION);
+            a2.setTargetAudience("ALL");
+            a2.setPinned(true);
+            a2.setPostedByUserId(1);
+            a2.setPostedDate(Date.valueOf("2026-10-08"));
+            a2.setExpiryDate(Date.valueOf("2026-10-26"));
+            a2.setAttachmentNote("Exam Cell Notification EC/S5/2026/02");
+            dao.createAnnouncement(a2, "principal");
+
+            Announcement a3 = new Announcement();
+            a3.setTitle("Faculty Research Grant Sponsorship & Conference Travel Subsidy (Q3/Q4)");
+            a3.setContent("Applications are invited from full-time teaching faculty for institutional research publication subsidies and IEEE/ACM international conference registration grants. Eligible faculty should forward proposals through respective Department Heads to the Principal's Secretariat by November 10, 2026.");
+            a3.setCategory(Announcement.Category.ACADEMIC);
+            a3.setTargetAudience("FACULTY");
+            a3.setPinned(false);
+            a3.setPostedByUserId(1);
+            a3.setPostedDate(Date.valueOf("2026-10-09"));
+            a3.setExpiryDate(Date.valueOf("2026-11-15"));
+            a3.setAttachmentNote("Dean Academic Research Cell Guidelines");
+            dao.createAnnouncement(a3, "principal");
+
+            Announcement a4 = new Announcement();
+            a4.setTitle("Inter-Collegiate Innovation Hackathon & Tech Symposium: TechnoVision 2026");
+            a4.setContent("Acadexia Institute of Technology will host TechnoVision 2026 on November 18-19, 2026. Student innovators from CSE, ECE, and allied branches are invited to register projects in AI/ML, Cloud Computing, and IoT tracks. Prizes worth INR 1,50,000 to be won.");
+            a4.setCategory(Announcement.Category.EVENT);
+            a4.setTargetAudience("STUDENTS");
+            a4.setPinned(false);
+            a4.setPostedByUserId(1);
+            a4.setPostedDate(Date.valueOf("2026-10-10"));
+            a4.setExpiryDate(Date.valueOf("2026-11-20"));
+            a4.setAttachmentNote("TechnoVision 2026 Brochure & Registration Form");
+            dao.createAnnouncement(a4, "principal");
+
+            Announcement a5 = new Announcement();
+            a5.setTitle("Zero Tolerance Advisory: Anti-Ragging and Student Grievance Redressal Vigilance");
+            a5.setContent("The College Anti-Ragging Squad and Internal Grievance Redressal Cell maintain 24/7 vigil across campus facilities and hostels. Any violation or harassment complaint can be lodged anonymously or directly via the Student Portal Grievance module for immediate adjudication.");
+            a5.setCategory(Announcement.Category.URGENT);
+            a5.setTargetAudience("ALL");
+            a5.setPinned(false);
+            a5.setPostedByUserId(1);
+            a5.setPostedDate(Date.valueOf("2026-10-04"));
+            a5.setExpiryDate(Date.valueOf("2026-12-31"));
+            a5.setAttachmentNote("Statutory UGC & AICTE Anti-Ragging Cell Notice");
+            dao.createAnnouncement(a5, "principal");
+
+        } catch (Exception e) {
+            System.err.println("Notice seeding announcements: " + e.getMessage());
+        }
+    }
+
+    public static void seedAcademicCalendarIfEmpty(Connection conn) {
+        try {
+            int count = 0;
+            try (Statement st = conn.createStatement();
+                 ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM academic_calendar")) {
+                if (rs.next()) count = rs.getInt(1);
+            } catch (SQLException ex) {
+                return;
+            }
+            if (count > 0) return;
+
+            AcademicCalendarDAO dao = new AcademicCalendarDAO();
+
+            AcademicEvent e1 = new AcademicEvent();
+            e1.setEventTitle("S5 Series-2 Continuous Internal Assessment (Theory & Practical)");
+            e1.setEventType(AcademicEvent.EventType.EXAM);
+            e1.setStartDate(Date.valueOf("2026-10-20"));
+            e1.setEndDate(Date.valueOf("2026-10-25"));
+            e1.setDescription("Institutional 2nd series internal examinations across all engineering departments.");
+            e1.setTargetAudience("ALL");
+            e1.setSemesterApplicable("Semester 5");
+            e1.setCreatedByUserId(1);
+            dao.createEvent(e1, "principal");
+
+            AcademicEvent e2 = new AcademicEvent();
+            e2.setEventTitle("Last Date for Faculty Continuous Assessment Marks Entry (Series-2)");
+            e2.setEventType(AcademicEvent.EventType.DEADLINE);
+            e2.setStartDate(Date.valueOf("2026-10-28"));
+            e2.setEndDate(Date.valueOf("2026-10-28"));
+            e2.setDescription("Statutory deadline for all subject faculties to enter and verify marks in Acadexia portal.");
+            e2.setTargetAudience("FACULTY");
+            e2.setSemesterApplicable("All Semesters");
+            e2.setCreatedByUserId(1);
+            dao.createEvent(e2, "principal");
+
+            AcademicEvent e3 = new AcademicEvent();
+            e3.setEventTitle("Academic Senate & HOD Executive Performance Review Meeting");
+            e3.setEventType(AcademicEvent.EventType.MEETING);
+            e3.setStartDate(Date.valueOf("2026-10-29"));
+            e3.setEndDate(Date.valueOf("2026-10-29"));
+            e3.setDescription("Quarterly departmental governance, student progress, and accreditation review chaired by Principal.");
+            e3.setTargetAudience("FACULTY");
+            e3.setSemesterApplicable("Institutional");
+            e3.setCreatedByUserId(1);
+            dao.createEvent(e3, "principal");
+
+            AcademicEvent e4 = new AcademicEvent();
+            e4.setEventTitle("Mid-Semester Parent-Teacher Consultation Conference (PTM)");
+            e4.setEventType(AcademicEvent.EventType.MEETING);
+            e4.setStartDate(Date.valueOf("2026-10-31"));
+            e4.setEndDate(Date.valueOf("2026-10-31"));
+            e4.setDescription("Direct interaction between parents, Class Faculty Advisors (CFAs), and HODs in Main Auditorium.");
+            e4.setTargetAudience("PARENTS");
+            e4.setSemesterApplicable("All Semesters");
+            e4.setCreatedByUserId(1);
+            dao.createEvent(e4, "principal");
+
+            AcademicEvent e5 = new AcademicEvent();
+            e5.setEventTitle("Public Holiday: Deepavali (Festival of Lights)");
+            e5.setEventType(AcademicEvent.EventType.HOLIDAY);
+            e5.setStartDate(Date.valueOf("2026-11-01"));
+            e5.setEndDate(Date.valueOf("2026-11-02"));
+            e5.setDescription("College and administrative offices closed on account of Deepavali holiday.");
+            e5.setTargetAudience("ALL");
+            e5.setSemesterApplicable("All");
+            e5.setCreatedByUserId(1);
+            dao.createEvent(e5, "principal");
+
+            AcademicEvent e6 = new AcademicEvent();
+            e6.setEventTitle("Official Principal Release & Publication of Series-2 Results");
+            e6.setEventType(AcademicEvent.EventType.DEADLINE);
+            e6.setStartDate(Date.valueOf("2026-11-05"));
+            e6.setEndDate(Date.valueOf("2026-11-05"));
+            e6.setDescription("Executive approval by Principal releasing results to student and parent dashboards.");
+            e6.setTargetAudience("ALL");
+            e6.setSemesterApplicable("Semester 5");
+            e6.setCreatedByUserId(1);
+            dao.createEvent(e6, "principal");
+
+            AcademicEvent e7 = new AcademicEvent();
+            e7.setEventTitle("Annual Inter-Collegiate Sports & Athletic Meet 2026");
+            e7.setEventType(AcademicEvent.EventType.CULTURAL_SPORTS);
+            e7.setStartDate(Date.valueOf("2026-11-12"));
+            e7.setEndDate(Date.valueOf("2026-11-14"));
+            e7.setDescription("Track & field events, inter-department tournament trophies, and sports day celebration.");
+            e7.setTargetAudience("ALL");
+            e7.setSemesterApplicable("All");
+            e7.setCreatedByUserId(1);
+            dao.createEvent(e7, "principal");
+
+        } catch (Exception e) {
+            System.err.println("Notice seeding academic calendar: " + e.getMessage());
+        }
+    }
 }
+
 

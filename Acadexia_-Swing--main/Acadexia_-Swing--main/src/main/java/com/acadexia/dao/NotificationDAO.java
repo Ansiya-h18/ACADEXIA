@@ -95,6 +95,32 @@ public class NotificationDAO {
         }
     }
 
+    public boolean deleteNotification(int id) {
+        String sql = "DELETE FROM notifications WHERE id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, id);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("Error deleting notification: " + e.getMessage());
+            return false;
+        }
+    }
+
+    public boolean toggleNotificationStatus(int id, boolean active) {
+        String sql = "UPDATE notifications SET is_active = ? WHERE id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setBoolean(1, active);
+            ps.setInt(2, id);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("Error toggling notification status: " + e.getMessage());
+            return false;
+        }
+    }
+
+
     private Notification mapResultSetToNotification(ResultSet rs) throws SQLException {
         Notification n = new Notification();
         n.setId(rs.getInt("id"));

@@ -148,6 +148,23 @@ public class ResultPublicationDAO {
         }
     }
 
+    public int bulkPublishVerifiedResults(int publishedByUserId, String remarks) {
+        String sql = """
+            UPDATE result_publications 
+            SET status = 'PUBLISHED', published_by_user_id = ?, published_at = CURRENT_TIMESTAMP, remarks = ?
+            WHERE status = 'VERIFIED'
+            """;
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, publishedByUserId);
+            ps.setString(2, remarks != null ? remarks : "Executive batch publication by Principal");
+            return ps.executeUpdate();
+        } catch (SQLException e) {
+            System.err.println("Error bulk publishing verified results: " + e.getMessage());
+            return 0;
+        }
+    }
+
     public Map<String, Integer> getPublicationStats() {
         Map<String, Integer> stats = new HashMap<>();
         stats.put("ENTERED", 0);
