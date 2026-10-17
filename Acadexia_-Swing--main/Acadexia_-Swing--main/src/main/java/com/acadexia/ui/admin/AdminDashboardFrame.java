@@ -6,8 +6,11 @@ import com.acadexia.model.*;
 import com.acadexia.security.InputFilterFactory;
 import com.acadexia.security.SessionManager;
 import com.acadexia.ui.auth.LandingFrame;
+import com.acadexia.ui.charts.AcademicChartFactory;
 import com.acadexia.ui.common.UIComponents;
 import com.acadexia.ui.common.UITheme;
+import org.jfree.chart.ChartPanel;
+import org.jfree.chart.JFreeChart;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -16,6 +19,7 @@ import java.awt.*;
 import java.sql.Date;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -79,14 +83,20 @@ public class AdminDashboardFrame extends JFrame {
     private JButton btnVerifyResults;
     private JButton btnPublishResults;
 
-    // Overview Stats container
+    // Overview Stats & Navigation
     private JPanel overviewStatsCardsPanel;
+    private JPanel adminChartsContainer;
+    private final CardLayout contentCardLayout = new CardLayout();
+    private final JPanel contentCardsPanel = new JPanel(contentCardLayout);
+    private final Map<String, JButton> sidebarButtons = new LinkedHashMap<>();
+    private JLabel lblSectionTitle;
+    private JLabel lblSectionSubtitle;
 
     public AdminDashboardFrame() {
-        setTitle("Acadexia - System Administration & Result Governance Center");
+        setTitle("Acadexia — System Administration & Result Governance Center");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(1200, 780);
-        setMinimumSize(new Dimension(1050, 680));
+        setSize(1240, 800);
+        setMinimumSize(new Dimension(1080, 700));
         setLocationRelativeTo(null);
         getContentPane().setBackground(UITheme.BG_DARK);
 
@@ -97,82 +107,192 @@ public class AdminDashboardFrame extends JFrame {
     private void initUI() {
         setLayout(new BorderLayout());
 
-        // Top Navigation Header
-        add(createTopBar(), BorderLayout.NORTH);
+        // Left Modern Sidebar
+        add(createSidebarPanel(), BorderLayout.WEST);
 
-        // Center Tabbed Views
-        JTabbedPane tabs = new JTabbedPane();
-        tabs.setFont(UITheme.FONT_BOLD);
+        // Right Content Area
+        JPanel rightContainer = new JPanel(new BorderLayout());
+        rightContainer.setOpaque(false);
+        rightContainer.add(createTopBar(), BorderLayout.NORTH);
 
-        // 1. Executive Overview & Statistics
-        tabs.addTab("📊 Executive Overview", createOverviewPanel());
+        // Content Cards Panel
+        contentCardsPanel.setBackground(UITheme.BG_DARK);
+        contentCardsPanel.add(createOverviewPanel(), "OVERVIEW");
+        contentCardsPanel.add(createStudentManagementPanel(), "STUDENTS");
+        contentCardsPanel.add(createFacultyManagementPanel(), "FACULTY");
+        contentCardsPanel.add(createDepartmentManagementPanel(), "DEPTS");
+        contentCardsPanel.add(createExamSchedulingPanel(), "EXAMS");
+        contentCardsPanel.add(createMarksAndResultsPanel(), "RESULTS");
+        contentCardsPanel.add(createParentManagementPanel(), "PARENTS");
+        contentCardsPanel.add(createUserManagementPanel(), "USERS");
+        contentCardsPanel.add(createAuditLogsPanel(), "AUDIT");
+        contentCardsPanel.add(createSystemStatusPanel(), "SYSTEM");
 
-        // 2. Student Registration & Lifecycle Management
-        tabs.addTab("🎓 Student Management", createStudentManagementPanel());
+        rightContainer.add(contentCardsPanel, BorderLayout.CENTER);
+        add(rightContainer, BorderLayout.CENTER);
+    }
 
-        // 3. Faculty Management
-        tabs.addTab("👨‍🏫 Faculty Management", createFacultyManagementPanel());
+    private JPanel createSidebarPanel() {
+        JPanel sidebar = new JPanel(new BorderLayout());
+        sidebar.setPreferredSize(new Dimension(260, 0));
+        sidebar.setBackground(UITheme.SIDEBAR_BG);
+        sidebar.setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, UITheme.SIDEBAR_BORDER));
 
-        // 4. Department & HOD Governance
-        tabs.addTab("🏛️ Departments & HODs", createDepartmentManagementPanel());
+        // Header
+        JPanel headerPanel = new JPanel();
+        headerPanel.setLayout(new BoxLayout(headerPanel, BoxLayout.Y_AXIS));
+        headerPanel.setOpaque(false);
+        headerPanel.setBorder(new EmptyBorder(22, 18, 16, 18));
 
-        // 5. Exam Scheduling
-        tabs.addTab("📝 Exam Scheduling", createExamSchedulingPanel());
+        JLabel lblBrand = new JLabel("ACADEXIA ERP");
+        lblBrand.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        lblBrand.setForeground(UITheme.CYAN_ACCENT);
 
-        // 6. Marks Entry & Result Publication
-        tabs.addTab("📈 Marks Entry & Publication", createMarksAndResultsPanel());
+        JLabel lblRole = new JLabel("Central Administration");
+        lblRole.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lblRole.setForeground(UITheme.TEXT_PRIMARY);
 
-        // 7. Parent Accounts & Student Linking
-        tabs.addTab("👨‍👩‍👧 Parent Accounts & Linking", createParentManagementPanel());
+        JLabel lblBadge = UIComponents.createBadge("System Governor & Results Authority", new Color(18, 38, 72), UITheme.CYAN_ACCENT);
+        lblBadge.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        // 8. User Accounts Administration
-        tabs.addTab("👥 User Governance", createUserManagementPanel());
+        headerPanel.add(lblBrand);
+        headerPanel.add(Box.createVerticalStrut(3));
+        headerPanel.add(lblRole);
+        headerPanel.add(Box.createVerticalStrut(8));
+        headerPanel.add(lblBadge);
 
-        // 9. Security & Audit Logs
-        tabs.addTab("🛡️ Security & Audit Logs", createAuditLogsPanel());
+        sidebar.add(headerPanel, BorderLayout.NORTH);
 
-        // 10. System Status & Diagnostics
-        tabs.addTab("⚙️ System Status", createSystemStatusPanel());
+        // Nav List
+        JPanel navList = new JPanel();
+        navList.setLayout(new BoxLayout(navList, BoxLayout.Y_AXIS));
+        navList.setOpaque(false);
+        navList.setBorder(new EmptyBorder(8, 10, 8, 10));
 
-        add(tabs, BorderLayout.CENTER);
+        addSidebarItem(navList, "OVERVIEW", "📊", "Executive Overview");
+        addSidebarItem(navList, "STUDENTS", "🎓", "Student Management");
+        addSidebarItem(navList, "FACULTY", "👨‍🏫", "Faculty Management");
+        addSidebarItem(navList, "DEPTS", "🏛️", "Departments & HODs");
+        addSidebarItem(navList, "EXAMS", "📝", "Exam Scheduling");
+        addSidebarItem(navList, "RESULTS", "📈", "Marks Entry & Results");
+        addSidebarItem(navList, "PARENTS", "👨‍👩‍👧", "Parent Accounts");
+        addSidebarItem(navList, "USERS", "👥", "User Governance");
+        addSidebarItem(navList, "AUDIT", "🛡️", "Security & Audit Logs");
+        addSidebarItem(navList, "SYSTEM", "⚙️", "System Status");
+
+        JScrollPane scrollNav = new JScrollPane(navList);
+        scrollNav.setBorder(null);
+        scrollNav.setOpaque(false);
+        scrollNav.getViewport().setOpaque(false);
+        scrollNav.getVerticalScrollBar().setUnitIncrement(14);
+        sidebar.add(scrollNav, BorderLayout.CENTER);
+
+        // Footer User Profile
+        JPanel footer = new JPanel(new BorderLayout(8, 8));
+        footer.setOpaque(false);
+        footer.setBorder(new EmptyBorder(14, 16, 16, 16));
+
+        User currentUser = SessionManager.getInstance().getCurrentUser();
+        String displayName = currentUser != null ? currentUser.getFullName() : "Administrator";
+
+        JPanel userBox = new JPanel();
+        userBox.setLayout(new BoxLayout(userBox, BoxLayout.Y_AXIS));
+        userBox.setOpaque(false);
+
+        JLabel lblU = new JLabel(displayName);
+        lblU.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lblU.setForeground(UITheme.TEXT_PRIMARY);
+
+        JLabel lblSub = new JLabel("System Administrator");
+        lblSub.setFont(new Font("Segoe UI", Font.PLAIN, 10));
+        lblSub.setForeground(UITheme.TEXT_MUTED);
+
+        userBox.add(lblU);
+        userBox.add(lblSub);
+
+        JButton btnLogout = UIComponents.createDangerButton("🚪 Exit");
+        btnLogout.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        btnLogout.addActionListener(e -> {
+            int confirm = JOptionPane.showConfirmDialog(this,
+                    "Are you sure you wish to log out from the Central Administration Portal?",
+                    "Confirm Sign Out", JOptionPane.YES_NO_OPTION);
+            if (confirm == JOptionPane.YES_OPTION) {
+                SessionManager.getInstance().logout();
+                new LandingFrame().setVisible(true);
+                dispose();
+            }
+        });
+
+        footer.add(userBox, BorderLayout.CENTER);
+        footer.add(btnLogout, BorderLayout.EAST);
+        sidebar.add(footer, BorderLayout.SOUTH);
+
+        return sidebar;
+    }
+
+    private void addSidebarItem(JPanel container, String cardKey, String icon, String title) {
+        JPanel row = new JPanel(new BorderLayout(6, 0));
+        row.setOpaque(false);
+        row.setMaximumSize(new Dimension(245, 42));
+        row.setPreferredSize(new Dimension(240, 40));
+
+        UIComponents.SidebarNavButton btn = new UIComponents.SidebarNavButton(icon, title);
+        btn.addActionListener(e -> selectView(cardKey, title));
+        sidebarButtons.put(cardKey, btn);
+
+        row.add(btn, BorderLayout.CENTER);
+        container.add(row);
+        container.add(Box.createVerticalStrut(3));
+    }
+
+    private void selectView(String cardKey, String title) {
+        contentCardLayout.show(contentCardsPanel, cardKey);
+        if (lblSectionTitle != null) lblSectionTitle.setText(title.toUpperCase());
+        if (lblSectionSubtitle != null) lblSectionSubtitle.setText("Administration > " + title);
+
+        for (Map.Entry<String, JButton> entry : sidebarButtons.entrySet()) {
+            boolean active = entry.getKey().equals(cardKey);
+            JButton b = entry.getValue();
+            if (b instanceof UIComponents.SidebarNavButton sb) {
+                sb.setActive(active);
+            }
+        }
     }
 
     private JPanel createTopBar() {
-        JPanel bar = new JPanel(new BorderLayout());
-        bar.setBackground(new Color(18, 18, 28));
-        bar.setBorder(new EmptyBorder(12, 20, 12, 20));
+        JPanel topBar = new JPanel(new BorderLayout());
+        topBar.setBackground(UITheme.TOPBAR_BG);
+        topBar.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0, 0, 1, 0, UITheme.CARD_BORDER),
+                new EmptyBorder(12, 22, 12, 22)
+        ));
 
-        JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
+        JPanel left = new JPanel();
+        left.setLayout(new BoxLayout(left, BoxLayout.Y_AXIS));
         left.setOpaque(false);
-        JLabel lblTitle = new JLabel("ACADEXIA CENTRAL ADMIN");
-        lblTitle.setFont(UITheme.FONT_SECTION);
-        lblTitle.setForeground(UITheme.PRIMARY);
 
-        JLabel lblBadge = UIComponents.createBadge("Academic Governance & Results Authority", new Color(49, 46, 129), UITheme.TEXT_PRIMARY);
-        left.add(lblTitle);
-        left.add(lblBadge);
+        lblSectionTitle = new JLabel("EXECUTIVE OVERVIEW");
+        lblSectionTitle.setFont(new Font("Segoe UI", Font.BOLD, 17));
+        lblSectionTitle.setForeground(UITheme.TEXT_PRIMARY);
+
+        lblSectionSubtitle = new JLabel("Administration > Executive Overview");
+        lblSectionSubtitle.setFont(UITheme.FONT_SMALL);
+        lblSectionSubtitle.setForeground(UITheme.TEXT_MUTED);
+
+        left.add(lblSectionTitle);
+        left.add(lblSectionSubtitle);
 
         JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         right.setOpaque(false);
 
-        User currentUser = SessionManager.getInstance().getCurrentUser();
-        JLabel lblUser = new JLabel("Signed in: " + (currentUser != null ? currentUser.getFullName() : "Administrator"));
-        lblUser.setFont(UITheme.FONT_REGULAR);
-        lblUser.setForeground(UITheme.TEXT_MUTED);
+        JButton btnRefreshAll = UIComponents.createSecondaryButton("🔄 Refresh Data");
+        btnRefreshAll.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        btnRefreshAll.addActionListener(e -> loadAllInitialData());
+        right.add(btnRefreshAll);
 
-        JButton btnLogout = UIComponents.createDangerButton("Log Out");
-        btnLogout.addActionListener(e -> {
-            SessionManager.getInstance().logout();
-            new LandingFrame().setVisible(true);
-            dispose();
-        });
-
-        right.add(lblUser);
-        right.add(btnLogout);
-
-        bar.add(left, BorderLayout.WEST);
-        bar.add(right, BorderLayout.EAST);
-        return bar;
+        topBar.add(left, BorderLayout.WEST);
+        topBar.add(right, BorderLayout.EAST);
+        return topBar;
     }
 
     private void loadAllInitialData() {
@@ -195,23 +315,28 @@ public class AdminDashboardFrame extends JFrame {
     private JPanel createOverviewPanel() {
         JPanel panel = new JPanel(new BorderLayout(16, 16));
         panel.setOpaque(false);
-        panel.setBorder(new EmptyBorder(20, 24, 20, 24));
+        panel.setBorder(new EmptyBorder(18, 22, 18, 22));
 
         // Top KPIs Grid
-        overviewStatsCardsPanel = new JPanel(new GridLayout(2, 3, 16, 16));
+        overviewStatsCardsPanel = new JPanel(new GridLayout(2, 3, 14, 14));
         overviewStatsCardsPanel.setOpaque(false);
+
+        // Center: Dual Interactive Charts
+        adminChartsContainer = new JPanel(new GridLayout(1, 2, 14, 14));
+        adminChartsContainer.setOpaque(false);
+        adminChartsContainer.setPreferredSize(new Dimension(0, 240));
 
         // Center Quick Insights & Status Cards
         JPanel centerCard = UIComponents.createCardPanel();
         centerCard.setLayout(new BorderLayout(12, 12));
 
-        JLabel lblHeader = new JLabel("Institutional Operations & Academic Status");
+        JLabel lblHeader = new JLabel("Institutional Operations & Academic Status Directives");
         lblHeader.setFont(UITheme.FONT_SECTION);
-        lblHeader.setForeground(UITheme.TEXT_PRIMARY);
+        lblHeader.setForeground(UITheme.CYAN_ACCENT);
         centerCard.add(lblHeader, BorderLayout.NORTH);
 
         JTextArea txtSummary = new JTextArea("""
-            Welcome to the Acadexia Central Administration Portal.
+            Welcome to the Acadexia Central Administration Command Center.
             
             Key Administrative Controls:
             • Student Registration: Generates official University/College registration numbers (e.g. REG2026CS001) and automatically suggests class roll numbers.
@@ -230,6 +355,11 @@ public class AdminDashboardFrame extends JFrame {
         txtSummary.setWrapStyleWord(true);
         centerCard.add(new JScrollPane(txtSummary), BorderLayout.CENTER);
 
+        JPanel middleSection = new JPanel(new BorderLayout(0, 14));
+        middleSection.setOpaque(false);
+        middleSection.add(adminChartsContainer, BorderLayout.NORTH);
+        middleSection.add(centerCard, BorderLayout.CENTER);
+
         // Bottom Action Bar
         JPanel bottomBar = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         bottomBar.setOpaque(false);
@@ -238,7 +368,7 @@ public class AdminDashboardFrame extends JFrame {
         bottomBar.add(btnRefreshStats);
 
         panel.add(overviewStatsCardsPanel, BorderLayout.NORTH);
-        panel.add(centerCard, BorderLayout.CENTER);
+        panel.add(middleSection, BorderLayout.CENTER);
         panel.add(bottomBar, BorderLayout.SOUTH);
 
         return panel;
@@ -258,20 +388,45 @@ public class AdminDashboardFrame extends JFrame {
         boolean dbOk = DatabaseConnection.testConnection();
 
         overviewStatsCardsPanel.add(UIComponents.createStatCard(
-                "Enrolled Students", String.valueOf(stuCount), "Across all active batches", UITheme.PRIMARY));
+                "Enrolled Students", String.valueOf(stuCount), "Across all active batches", UITheme.CYAN_ACCENT, "🎓"));
         overviewStatsCardsPanel.add(UIComponents.createStatCard(
-                "Teaching Faculty", String.valueOf(facCount), "Professors & Instructors", UITheme.SUCCESS));
+                "Teaching Faculty", String.valueOf(facCount), "Professors & Instructors", UITheme.SUCCESS, "👨‍🏫"));
         overviewStatsCardsPanel.add(UIComponents.createStatCard(
-                "Academic Departments", String.valueOf(deptCount), "Engineering & Sciences", UITheme.INFO));
+                "Academic Departments", String.valueOf(deptCount), "Engineering & Sciences", UITheme.INFO, "🏛️"));
         overviewStatsCardsPanel.add(UIComponents.createStatCard(
-                "Active Class Batches", String.valueOf(classCount), "Current Semesters", UITheme.WARNING));
+                "Active Class Batches", String.valueOf(classCount), "Current Semesters", UITheme.WARNING, "📅"));
         overviewStatsCardsPanel.add(UIComponents.createStatCard(
-                "Results Published", String.valueOf(publishedCount), verifiedCount + " awaiting publishing", new Color(168, 85, 247)));
+                "Results Published", String.valueOf(publishedCount), verifiedCount + " awaiting publishing", new Color(168, 85, 247), "📈"));
         overviewStatsCardsPanel.add(UIComponents.createStatCard(
-                "Database Engine", dbOk ? "ONLINE" : "OFFLINE", "MySQL 8.0+ / utf8mb4", dbOk ? UITheme.SUCCESS : UITheme.DANGER));
+                "Database Engine", dbOk ? "ONLINE" : "OFFLINE", "MySQL 8.0+ / utf8mb4", dbOk ? UITheme.SUCCESS : UITheme.DANGER, "🛡️"));
 
-        overviewStatsCardsPanel.revalidate();
-        overviewStatsCardsPanel.repaint();
+        // Render JFreeCharts in Overview
+        if (adminChartsContainer != null) {
+            adminChartsContainer.removeAll();
+
+            // 1. Department Enrollment & Capacity Bar Chart
+            Map<String, Double> deptData = new LinkedHashMap<>();
+            List<Department> depts = departmentDAO.getAllDepartments();
+            for (Department d : depts) {
+                long count = studentDAO.getStudentsByDepartment(d.getId()).size();
+                deptData.put(d.getCode() != null ? d.getCode() : d.getName(), (double) count);
+            }
+            if (deptData.isEmpty()) {
+                deptData.put("CSE", (double) stuCount);
+            }
+            JFreeChart deptChart = AcademicChartFactory.createDepartmentResultsBarChart("Department Student Enrollment", deptData, "Students Enrolled");
+            ChartPanel pnlDept = AcademicChartFactory.createChartPanel(deptChart);
+
+            // 2. Exam Publication & Status Donut Chart
+            JFreeChart pubChart = AcademicChartFactory.createPassFailDonutChart("Result Publications & Lifecycle Status", (double) publishedCount, (double) verifiedCount, 1.0);
+            ChartPanel pnlPub = AcademicChartFactory.createChartPanel(pubChart);
+
+            adminChartsContainer.add(pnlDept);
+            adminChartsContainer.add(pnlPub);
+            adminChartsContainer.revalidate();
+            adminChartsContainer.repaint();
+        }
+
     }
 
     // =========================================================================
@@ -410,10 +565,10 @@ public class AdminDashboardFrame extends JFrame {
 
     private void showCreateStudentDialog() {
         JDialog dlg = new JDialog(this, "Register New Student (Official ID Generation)", true);
-        dlg.setSize(540, 620);
+        dlg.setSize(540, 680);
         dlg.setLocationRelativeTo(this);
 
-        JPanel p = new JPanel(new GridLayout(11, 2, 8, 8));
+        JPanel p = new JPanel(new GridLayout(12, 2, 8, 8));
         p.setBackground(UITheme.CARD_BG);
         p.setBorder(new EmptyBorder(20, 24, 20, 24));
 
@@ -423,10 +578,13 @@ public class AdminDashboardFrame extends JFrame {
         JTextField txtEmail = new JTextField();
         JTextField txtPhone = new JTextField();
         JComboBox<Integer> cmbAdmYear = new JComboBox<>(new Integer[]{2026, 2025, 2024, 2023});
-        
-        List<ClassBatch> classes = classDAO.getAllClasses();
+
+        // Load all departments dynamically from existing MySQL departments table using JDBC
+        List<Department> depts = departmentDAO.getAllDepartments();
+        JComboBox<Department> cmbDept = new JComboBox<>();
+        for (Department d : depts) cmbDept.addItem(d);
+
         JComboBox<ClassBatch> cmbClass = new JComboBox<>();
-        for (ClassBatch cb : classes) cmbClass.addItem(cb);
 
         JTextField txtOfficialRegNo = new JTextField();
         txtOfficialRegNo.setEditable(false);
@@ -445,28 +603,66 @@ public class AdminDashboardFrame extends JFrame {
         InputFilterFactory.applyNumericFilter(txtPhone, 15, false);
         InputFilterFactory.applyNumericFilter(txtRollNo, 5, false);
 
-        // Auto ID generation helper listener
-        Runnable updateAutoIds = () -> {
-            ClassBatch selClass = (ClassBatch) cmbClass.getSelectedItem();
+        // Auto ID generation & class loader listener based on selected department
+        Runnable updateClassesAndAutoIds = () -> {
+            Department selDept = (Department) cmbDept.getSelectedItem();
+            if (selDept == null) return;
             int admYear = (Integer) cmbAdmYear.getSelectedItem();
-            if (selClass != null) {
-                Department dept = departmentDAO.getById(selClass.getDepartmentId());
-                String deptCode = (dept != null) ? dept.getCode() : "CS";
-                String nextReg = studentDAO.generateNextRegisterNumber(admYear, deptCode);
-                txtOfficialRegNo.setText(nextReg);
 
-                String nextRoll = studentDAO.getNextRollNumber(selClass.getId());
-                txtRollNo.setText(nextRoll);
+            // Load classes dynamically for selected department
+            cmbClass.removeAllItems();
+            List<ClassBatch> deptClasses = classDAO.getClassesByDepartment(selDept.getId());
+            if (deptClasses.isEmpty()) {
+                // Auto-provision a starter class batch for this department if none exists
+                ClassBatch defaultBatch = new ClassBatch();
+                defaultBatch.setName("S1 " + selDept.getCode());
+                defaultBatch.setDepartmentId(selDept.getId());
+                defaultBatch.setSemester(1);
+                defaultBatch.setAcademicYear(admYear + "-" + (admYear + 1));
+                defaultBatch.setSection("A");
+                try {
+                    int newClassId = classDAO.createClass(defaultBatch);
+                    if (newClassId > 0) {
+                        defaultBatch.setId(newClassId);
+                        defaultBatch.setDepartmentName(selDept.getName());
+                        deptClasses.add(defaultBatch);
+                    }
+                } catch (Exception ex) {
+                    System.err.println("Could not auto-create starter class for dept " + selDept.getCode() + ": " + ex.getMessage());
+                }
+            }
+            for (ClassBatch cb : deptClasses) {
+                cmbClass.addItem(cb);
+            }
 
-                if (txtUsername.getText().trim().isEmpty() && !txtName.getText().trim().isEmpty()) {
-                    String clean = txtName.getText().trim().toLowerCase().replaceAll("[^a-z0-9]", ".");
-                    txtUsername.setText(clean);
+            // Update registration number and roll number
+            String deptCode = selDept.getCode();
+            String nextReg = studentDAO.generateNextRegisterNumber(admYear, deptCode);
+            txtOfficialRegNo.setText(nextReg);
+
+            ClassBatch selClass = (ClassBatch) cmbClass.getSelectedItem();
+            String nextRoll = (selClass != null) ? studentDAO.getNextRollNumber(selClass.getId()) : "01";
+            txtRollNo.setText(nextRoll);
+
+            if (txtUsername.getText().trim().isEmpty() && !txtName.getText().trim().isEmpty()) {
+                String clean = txtName.getText().trim().toLowerCase().replaceAll("[^a-z0-9]", ".");
+                txtUsername.setText(clean);
+                if (txtEmail.getText().trim().isEmpty()) {
+                    txtEmail.setText(clean + "@acadexia.edu");
                 }
             }
         };
 
-        cmbClass.addActionListener(e -> updateAutoIds.run());
-        cmbAdmYear.addActionListener(e -> updateAutoIds.run());
+        cmbDept.addActionListener(e -> updateClassesAndAutoIds.run());
+        cmbAdmYear.addActionListener(e -> updateClassesAndAutoIds.run());
+        cmbClass.addActionListener(e -> {
+            ClassBatch selClass = (ClassBatch) cmbClass.getSelectedItem();
+            if (selClass != null) {
+                String nextRoll = studentDAO.getNextRollNumber(selClass.getId());
+                txtRollNo.setText(nextRoll);
+            }
+        });
+
         txtName.addFocusListener(new java.awt.event.FocusAdapter() {
             @Override
             public void focusLost(java.awt.event.FocusEvent e) {
@@ -481,10 +677,12 @@ public class AdminDashboardFrame extends JFrame {
         });
 
         // Trigger initial preview
-        updateAutoIds.run();
+        updateClassesAndAutoIds.run();
 
         p.add(new JLabel("Full Name:"));
         p.add(txtName);
+        p.add(new JLabel("Department:"));
+        p.add(cmbDept);
         p.add(new JLabel("Admission Year:"));
         p.add(cmbAdmYear);
         p.add(new JLabel("Class Batch:"));
@@ -510,19 +708,23 @@ public class AdminDashboardFrame extends JFrame {
         btnSubmit.addActionListener(e -> {
             if (txtName.getText().trim().isEmpty() || txtUsername.getText().trim().isEmpty()
                     || txtPass.getPassword().length == 0 || txtOfficialRegNo.getText().trim().isEmpty()) {
-                JOptionPane.showMessageDialog(dlg, "Name, username, password, and class are required.", "Validation Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(dlg, "Name, username, password, department, and class are required.", "Validation Error", JOptionPane.ERROR_MESSAGE);
                 return;
             }
 
+            Department selDept = (Department) cmbDept.getSelectedItem();
             ClassBatch selClass = (ClassBatch) cmbClass.getSelectedItem();
-            if (selClass == null) return;
+            if (selDept == null || selClass == null) {
+                JOptionPane.showMessageDialog(dlg, "Department and Class Batch are required.", "Validation Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
 
             User u = new User();
             u.setUsername(txtUsername.getText().trim());
             u.setFullName(txtName.getText().trim());
             u.setEmail(txtEmail.getText().trim());
             u.setPhone(txtPhone.getText().trim());
-            u.setDepartmentId(selClass.getDepartmentId());
+            u.setDepartmentId(selDept.getId());
             u.setRole(Role.STUDENT);
             u.setActive(true);
 
@@ -541,12 +743,13 @@ public class AdminDashboardFrame extends JFrame {
                     int studentId = studentDAO.createStudent(s);
                     if (studentId > 0) {
                         AuditLogDAO.log(userId, u.getUsername(), "ADMIN", "STUDENT_REGISTERED", "STUDENT",
-                                String.valueOf(studentId), "Official Register No: " + s.getRegisterNumber(), AuditLog.Severity.INFO);
+                                String.valueOf(studentId), "Official Register No: " + s.getRegisterNumber() + ", Dept: " + selDept.getName(), AuditLog.Severity.INFO);
 
                         loadStudents();
                         dlg.dispose();
                         JOptionPane.showMessageDialog(this,
                                 "Student registered successfully!\nOfficial Register Number: " + s.getRegisterNumber()
+                                        + "\nDepartment: " + selDept.getName()
                                         + "\nClass Roll Number: " + s.getRollNumber(),
                                 "Registration Complete", JOptionPane.INFORMATION_MESSAGE);
                     }
@@ -575,10 +778,10 @@ public class AdminDashboardFrame extends JFrame {
             }
 
             JDialog dlg = new JDialog(this, "Edit Student #" + s.getId() + " (" + s.getRegisterNumber() + ")", true);
-            dlg.setSize(480, 480);
+            dlg.setSize(480, 520);
             dlg.setLocationRelativeTo(this);
 
-            JPanel p = new JPanel(new GridLayout(7, 2, 8, 8));
+            JPanel p = new JPanel(new GridLayout(8, 2, 8, 8));
             p.setBackground(UITheme.CARD_BG);
             p.setBorder(new EmptyBorder(20, 24, 20, 24));
 
@@ -589,15 +792,32 @@ public class AdminDashboardFrame extends JFrame {
             JTextField txtGName = new JTextField(s.getGuardianName() != null ? s.getGuardianName() : "");
             JTextField txtGPhone = new JTextField(s.getGuardianPhone() != null ? s.getGuardianPhone() : "");
 
-            List<ClassBatch> classes = classDAO.getAllClasses();
-            JComboBox<ClassBatch> cmbClass = new JComboBox<>();
-            for (ClassBatch cb : classes) {
-                cmbClass.addItem(cb);
-                if (cb.getId() == s.getClassId()) cmbClass.setSelectedItem(cb);
+            List<Department> depts = departmentDAO.getAllDepartments();
+            JComboBox<Department> cmbDept = new JComboBox<>();
+            for (Department d : depts) {
+                cmbDept.addItem(d);
+                if (d.getId() == s.getDepartmentId()) cmbDept.setSelectedItem(d);
             }
+
+            JComboBox<ClassBatch> cmbClass = new JComboBox<>();
+            Runnable refreshEditClasses = () -> {
+                cmbClass.removeAllItems();
+                Department selDept = (Department) cmbDept.getSelectedItem();
+                if (selDept != null) {
+                    List<ClassBatch> deptClasses = classDAO.getClassesByDepartment(selDept.getId());
+                    for (ClassBatch cb : deptClasses) {
+                        cmbClass.addItem(cb);
+                        if (cb.getId() == s.getClassId()) cmbClass.setSelectedItem(cb);
+                    }
+                }
+            };
+            cmbDept.addActionListener(e -> refreshEditClasses.run());
+            refreshEditClasses.run();
 
             p.add(new JLabel("Full Name:"));
             p.add(txtName);
+            p.add(new JLabel("Department:"));
+            p.add(cmbDept);
             p.add(new JLabel("Assigned Class:"));
             p.add(cmbClass);
             p.add(new JLabel("Class Roll Number:"));
@@ -613,8 +833,10 @@ public class AdminDashboardFrame extends JFrame {
 
             JButton btnSave = UIComponents.createSuccessButton("Save Updated Details");
             btnSave.addActionListener(e -> {
+                Department selDept = (Department) cmbDept.getSelectedItem();
                 ClassBatch sel = (ClassBatch) cmbClass.getSelectedItem();
                 if (sel != null) s.setClassId(sel.getId());
+                if (selDept != null) s.setDepartmentId(selDept.getId());
                 s.setFullName(txtName.getText().trim());
                 s.setRollNumber(txtRoll.getText().trim());
                 s.setEmail(txtEmail.getText().trim());

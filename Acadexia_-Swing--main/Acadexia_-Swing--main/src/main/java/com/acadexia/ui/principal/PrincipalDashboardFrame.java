@@ -214,31 +214,31 @@ public class PrincipalDashboardFrame extends JFrame {
 
     private JPanel createSidebarPanel() {
         JPanel sidebar = new JPanel(new BorderLayout());
-        sidebar.setPreferredSize(new Dimension(255, 0));
-        sidebar.setBackground(new Color(16, 17, 26));
-        sidebar.setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, new Color(38, 40, 58)));
+        sidebar.setPreferredSize(new Dimension(260, 0));
+        sidebar.setBackground(UITheme.SIDEBAR_BG);
+        sidebar.setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, UITheme.SIDEBAR_BORDER));
 
         // Sidebar Header
         JPanel headerPanel = new JPanel();
         headerPanel.setLayout(new BoxLayout(headerPanel, BoxLayout.Y_AXIS));
         headerPanel.setOpaque(false);
-        headerPanel.setBorder(new EmptyBorder(20, 18, 16, 18));
+        headerPanel.setBorder(new EmptyBorder(22, 18, 16, 18));
 
         JLabel lblBrand = new JLabel("ACADEXIA ERP");
-        lblBrand.setFont(new Font("Segoe UI", Font.BOLD, 19));
-        lblBrand.setForeground(new Color(245, 158, 11)); // Amber/Gold
+        lblBrand.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        lblBrand.setForeground(UITheme.CYAN_ACCENT);
 
         JLabel lblRole = new JLabel("Office of the Principal");
         lblRole.setFont(new Font("Segoe UI", Font.BOLD, 12));
         lblRole.setForeground(UITheme.TEXT_PRIMARY);
 
-        JLabel lblBadge = UIComponents.createBadge("Executive Academic Head", new Color(120, 53, 15), new Color(254, 243, 199));
+        JLabel lblBadge = UIComponents.createBadge("Executive Academic Head", new Color(18, 38, 72), UITheme.CYAN_ACCENT);
         lblBadge.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         headerPanel.add(lblBrand);
-        headerPanel.add(Box.createVerticalStrut(2));
+        headerPanel.add(Box.createVerticalStrut(3));
         headerPanel.add(lblRole);
-        headerPanel.add(Box.createVerticalStrut(6));
+        headerPanel.add(Box.createVerticalStrut(8));
         headerPanel.add(lblBadge);
 
         sidebar.add(headerPanel, BorderLayout.NORTH);
@@ -317,18 +317,10 @@ public class PrincipalDashboardFrame extends JFrame {
     private void addSidebarItem(JPanel container, String cardKey, String icon, String title, JLabel badge) {
         JPanel row = new JPanel(new BorderLayout(6, 0));
         row.setOpaque(false);
-        row.setMaximumSize(new Dimension(240, 40));
-        row.setPreferredSize(new Dimension(235, 38));
+        row.setMaximumSize(new Dimension(245, 42));
+        row.setPreferredSize(new Dimension(240, 40));
 
-        JButton btn = new JButton(icon + "  " + title);
-        btn.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        btn.setForeground(new Color(203, 213, 225));
-        btn.setBackground(new Color(16, 17, 26));
-        btn.setHorizontalAlignment(SwingConstants.LEFT);
-        btn.setFocusPainted(false);
-        btn.setBorder(new EmptyBorder(8, 12, 8, 8));
-        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
+        UIComponents.SidebarNavButton btn = new UIComponents.SidebarNavButton(icon, title);
         btn.addActionListener(e -> selectView(cardKey, title));
         sidebarButtons.put(cardKey, btn);
 
@@ -347,7 +339,7 @@ public class PrincipalDashboardFrame extends JFrame {
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(new Color(245, 158, 11));
+                g2.setColor(UITheme.CYAN_ACCENT);
                 g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
                 g2.dispose();
                 super.paintComponent(g);
@@ -365,20 +357,21 @@ public class PrincipalDashboardFrame extends JFrame {
         lblSectionTitle.setText(title.toUpperCase());
         lblSectionSubtitle.setText("Institutional Governance > " + title);
 
-        // Update active sidebar styling
+        // Update active sidebar styling with glowing highlights
         for (Map.Entry<String, JButton> entry : sidebarButtons.entrySet()) {
             boolean active = entry.getKey().equals(cardKey);
             JButton b = entry.getValue();
-            b.setBackground(active ? new Color(38, 41, 64) : new Color(16, 17, 26));
-            b.setForeground(active ? new Color(245, 158, 11) : new Color(203, 213, 225));
+            if (b instanceof UIComponents.SidebarNavButton sb) {
+                sb.setActive(active);
+            }
         }
     }
 
     private JPanel createTopBar() {
         JPanel topBar = new JPanel(new BorderLayout());
-        topBar.setBackground(new Color(20, 21, 32));
+        topBar.setBackground(UITheme.TOPBAR_BG);
         topBar.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(40, 42, 60)),
+                BorderFactory.createMatteBorder(0, 0, 1, 0, UITheme.CARD_BORDER),
                 new EmptyBorder(12, 22, 12, 22)
         ));
 

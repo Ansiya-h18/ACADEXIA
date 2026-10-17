@@ -32,22 +32,22 @@ import java.awt.image.BufferedImage;
  */
 public class LandingFrame extends JFrame {
 
-    // --- Color System: Dark Navy + Indigo / Purple Theme ---
-    private static final Color BG_DARK_TOP        = new Color(11, 15, 26);    // #0B0F1A Deepest Midnight Navy
-    private static final Color BG_DARK_BOTTOM     = new Color(15, 23, 42);    // #0F172A Slate Navy
-    private static final Color CARD_BG_TOP        = new Color(22, 29, 49);    // #161D31 Elevated Card Top
-    private static final Color CARD_BG_BOTTOM     = new Color(16, 21, 36);    // #101524 Elevated Card Bottom
-    private static final Color CARD_BORDER        = new Color(42, 54, 86);    // #2A3656 Card Border
+    // --- Color System: Dark Navy + Electric Blue Hover Theme ---
+    private static final Color BG_DARK_TOP        = new Color(8, 12, 22);     // #080C16 Deepest Midnight Navy
+    private static final Color BG_DARK_BOTTOM     = new Color(13, 20, 38);    // #0D1426 Slate Navy Canvas
+    private static final Color CARD_BG_TOP        = new Color(19, 29, 54);    // #131D36 Elevated Dark Blue Card
+    private static final Color CARD_BG_BOTTOM     = new Color(14, 21, 40);    // #0E1528 Bottom Card
+    private static final Color CARD_BORDER        = new Color(34, 52, 94);    // #22345E Card Border
 
-    private static final Color INPUT_BG           = new Color(12, 16, 28);    // #0C101C Recessed Field BG
-    private static final Color INPUT_BORDER       = new Color(38, 48, 76);    // #26304C Default Input Border
-    private static final Color INPUT_BORDER_FOCUS = new Color(99, 102, 241);   // #6366F1 Focus Indigo
-    private static final Color INPUT_FOCUS_GLOW   = new Color(99, 102, 241, 40);
+    private static final Color INPUT_BG           = new Color(10, 15, 28);    // #0A0F1C Recessed Input BG
+    private static final Color INPUT_BORDER       = new Color(28, 42, 74);    // #1C2A4A Default Input Border
+    private static final Color INPUT_BORDER_FOCUS = new Color(0, 210, 255);   // #00D2FF Electric Cyan
+    private static final Color INPUT_FOCUS_GLOW   = new Color(0, 210, 255, 55);
 
-    private static final Color INDIGO_PRIMARY     = new Color(99, 102, 241);  // #6366F1 Modern Indigo
-    private static final Color INDIGO_HOVER       = new Color(79, 70, 229);   // #4F46E5 Indigo-600
-    private static final Color PURPLE_ACCENT      = new Color(139, 92, 246);  // #8B5CF6 Violet-500
-    private static final Color PURPLE_DEEP        = new Color(124, 58, 237);  // #7C3AED Violet-600
+    private static final Color INDIGO_PRIMARY     = new Color(37, 99, 235);   // #2563EB Electric Blue
+    private static final Color INDIGO_HOVER       = new Color(59, 130, 246);  // #3B82F6 Bright Blue
+    private static final Color PURPLE_ACCENT      = new Color(0, 210, 255);   // #00D2FF Cyan Accent
+    private static final Color PURPLE_DEEP        = new Color(2, 132, 199);   // #0284C7 Deep Sky Blue
 
     private static final Color TEXT_HEAD          = new Color(248, 250, 252); // #F8FAFC
     private static final Color TEXT_BODY          = new Color(226, 232, 240); // #E2E8F0
@@ -1111,14 +1111,14 @@ public class LandingFrame extends JFrame {
             } else {
                 Color c1, c2;
                 if (isPressed) {
-                    c1 = new Color(67, 56, 202);
-                    c2 = new Color(109, 40, 217);
+                    c1 = new Color(30, 64, 175);
+                    c2 = new Color(29, 78, 216);
                 } else if (isHovered) {
-                    c1 = new Color(110, 114, 245);
-                    c2 = new Color(155, 110, 252);
+                    c1 = new Color(59, 130, 246);
+                    c2 = new Color(0, 210, 255);
                 } else {
-                    c1 = INDIGO_HOVER;
-                    c2 = PURPLE_DEEP;
+                    c1 = new Color(37, 99, 235);
+                    c2 = new Color(29, 78, 216);
                 }
 
                 GradientPaint gp = new GradientPaint(0, 0, c1, w, 0, c2);
@@ -1126,8 +1126,15 @@ public class LandingFrame extends JFrame {
                 g2.fillRoundRect(0, 0, w, h, arc, arc);
 
                 // Subtle inner top highlight
-                g2.setColor(new Color(255, 255, 255, 35));
+                g2.setColor(new Color(255, 255, 255, 45));
                 g2.drawLine(arc / 2, 1, w - arc / 2, 1);
+
+                // Glowing Electric Cyan border on hover
+                if (isHovered) {
+                    g2.setColor(new Color(0, 210, 255, 180));
+                    g2.setStroke(new BasicStroke(1.5f));
+                    g2.drawRoundRect(0, 0, w - 1, h - 1, arc, arc);
+                }
             }
 
             // Draw button text and vector arrow

@@ -4,8 +4,11 @@ import com.acadexia.dao.*;
 import com.acadexia.model.*;
 import com.acadexia.security.SessionManager;
 import com.acadexia.ui.auth.LandingFrame;
+import com.acadexia.ui.charts.AcademicChartFactory;
 import com.acadexia.ui.common.UIComponents;
 import com.acadexia.ui.common.UITheme;
+import org.jfree.chart.ChartPanel;
+import org.jfree.chart.JFreeChart;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -15,27 +18,29 @@ import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.geom.RoundRectangle2D;
 import java.sql.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Modern Acadexia Parent Portal.
- * Features an executive university-management aesthetic strictly matching the Landing Page dark theme:
- * - Deep navy (#0B0F1A to #0F172A) canvas and elevated card panels (#161D31)
- * - Indigo accents (#6366F1), emerald successes, and warning badges
+ * Features an executive university-management aesthetic strictly matching the Dark Navy Hover Theme:
+ * - Deep navy (#080C16 to #0D1426) canvas and elevated card panels (#131D36)
+ * - Electric Blue (#2563EB) and Neon Cyan (#00D2FF) accents
  * - Strict read-only access to linked child's results, attendance, assignments,
  *   daily classwork, faculty feedback, exam schedules, and institutional notifications.
  */
 public class ParentDashboardFrame extends JFrame {
 
-    // --- Dark Theme Color Palette matching LandingFrame ---
-    private static final Color BG_DARK_TOP        = new Color(11, 15, 26);    // #0B0F1A Midnight Navy
-    private static final Color BG_DARK_BOTTOM     = new Color(15, 23, 42);    // #0F172A Slate Navy
-    private static final Color CARD_BG            = new Color(22, 29, 49);    // #161D31 Elevated Card
-    private static final Color CARD_BG_ALT        = new Color(28, 36, 60);    // Alternate row
-    private static final Color CARD_BORDER        = new Color(42, 54, 86);    // #2A3656
-    private static final Color INDIGO_PRIMARY     = new Color(99, 102, 241);  // #6366F1
-    private static final Color INDIGO_HOVER       = new Color(79, 70, 229);   // #4F46E5
-    private static final Color PURPLE_ACCENT      = new Color(139, 92, 246);  // #8B5CF6
+    // --- Dark Theme Color Palette ---
+    private static final Color BG_DARK_TOP        = new Color(8, 12, 22);     // #080C16 Midnight Navy
+    private static final Color BG_DARK_BOTTOM     = new Color(13, 20, 38);    // #0D1426 Slate Navy
+    private static final Color CARD_BG            = new Color(19, 29, 54);    // #131D36 Elevated Card
+    private static final Color CARD_BG_ALT        = new Color(24, 35, 64);    // Alternate row
+    private static final Color CARD_BORDER        = new Color(34, 52, 94);    // #22345E
+    private static final Color INDIGO_PRIMARY     = new Color(37, 99, 235);   // #2563EB Electric Blue
+    private static final Color INDIGO_HOVER       = new Color(59, 130, 246);  // #3B82F6
+    private static final Color PURPLE_ACCENT      = new Color(0, 210, 255);   // #00D2FF Neon Cyan
     private static final Color TEXT_HEAD          = new Color(248, 250, 252); // #F8FAFC
     private static final Color TEXT_BODY          = new Color(226, 232, 240); // #E2E8F0
     private static final Color TEXT_MUTED         = new Color(148, 163, 184); // #94A3B8
@@ -77,6 +82,10 @@ public class ParentDashboardFrame extends JFrame {
     private List<Assignment> cachedAssignments;
     private List<Notification> cachedNotifications;
     private List<DailyClasswork> cachedClasswork;
+
+    // Interactive JFreeCharts
+    private JPanel parentMarksChartsContainer;
+    private JPanel parentAttChartContainer;
 
     public ParentDashboardFrame() {
         this.currentParent = SessionManager.getInstance().getCurrentParent();
@@ -154,9 +163,9 @@ public class ParentDashboardFrame extends JFrame {
     // =========================================================================
     private JPanel createTopBar() {
         JPanel bar = new JPanel(new BorderLayout());
-        bar.setBackground(new Color(15, 20, 35));
+        bar.setBackground(UITheme.TOPBAR_BG);
         bar.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createMatteBorder(0, 0, 1, 0, CARD_BORDER),
+                BorderFactory.createMatteBorder(0, 0, 1, 0, UITheme.CARD_BORDER),
                 new EmptyBorder(12, 22, 12, 22)
         ));
 
@@ -166,7 +175,7 @@ public class ParentDashboardFrame extends JFrame {
 
         JLabel lblTitle = new JLabel("ACADEXIA PARENT PORTAL");
         lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 17));
-        lblTitle.setForeground(INDIGO_PRIMARY);
+        lblTitle.setForeground(UITheme.CYAN_ACCENT);
 
         String verText = (currentParent != null && currentParent.getVerificationStatus() == Parent.VerificationStatus.VERIFIED)
                 ? "✓ Verified Guardian" : "Pending Verification";
@@ -181,7 +190,7 @@ public class ParentDashboardFrame extends JFrame {
 
         if (linkedChild != null) {
             JLabel childPill = UIComponents.createBadge("Ward: " + linkedChild.getFullName() + " (" + linkedChild.getRegisterNumber() + ")",
-                    new Color(49, 46, 129), TEXT_HEAD);
+                    new Color(18, 38, 72), UITheme.CYAN_ACCENT);
             left.add(childPill);
         }
 
@@ -194,7 +203,7 @@ public class ParentDashboardFrame extends JFrame {
         lblParent.setFont(UITheme.FONT_REGULAR);
         lblParent.setForeground(TEXT_MUTED);
 
-        JButton btnLogout = UIComponents.createDangerButton("Log Out");
+        JButton btnLogout = UIComponents.createDangerButton("🚪 Exit");
         btnLogout.addActionListener(e -> {
             SessionManager.getInstance().logout();
             new LandingFrame().setVisible(true);
@@ -223,14 +232,14 @@ public class ParentDashboardFrame extends JFrame {
         Color attColor = attPct >= 75.0 ? COLOR_STUDENT : COLOR_DANGER;
         String attSub = attPct >= 75.0 ? "Eligible for Examinations (≥75%)" : "⚠️ Shortage Alert (<75% min required)";
 
-        banner.add(UIComponents.createStatCard("Child Attendance", String.format("%.1f%%", attPct), attSub, attColor));
-        banner.add(UIComponents.createStatCard("Semester SGPA", String.format("%.2f", sgpa), "Current Semester Grade Point", INDIGO_PRIMARY));
-        banner.add(UIComponents.createStatCard("Cumulative CGPA", String.format("%.2f", cgpa), "All-Semester Standing", PURPLE_ACCENT));
+        banner.add(UIComponents.createStatCard("Child Attendance", String.format("%.1f%%", attPct), attSub, attColor, "🕒"));
+        banner.add(UIComponents.createStatCard("Semester SGPA", String.format("%.2f", sgpa), "Current Semester Grade Point", UITheme.CYAN_ACCENT, "📊"));
+        banner.add(UIComponents.createStatCard("Cumulative CGPA", String.format("%.2f", cgpa), "All-Semester Standing", UITheme.PRIMARY, "🎓"));
 
         String classAdvisor = (currentParent != null && currentParent.getStudentAdvisorName() != null)
                 ? currentParent.getStudentAdvisorName() : "Faculty Advisor";
         String classDept = (linkedChild != null) ? linkedChild.getClassName() + " (" + linkedChild.getDepartmentName() + ")" : "Class";
-        banner.add(UIComponents.createStatCard("Class & Advisor", classDept, "CFA: " + classAdvisor, COLOR_WARN));
+        banner.add(UIComponents.createStatCard("Class & Advisor", classDept, "CFA: " + classAdvisor, COLOR_WARN, "🏛️"));
 
         return banner;
     }
@@ -273,10 +282,15 @@ public class ParentDashboardFrame extends JFrame {
 
         lblMarksSummary = new JLabel("Loading marks summary...");
         lblMarksSummary.setFont(UITheme.FONT_BOLD);
-        lblMarksSummary.setForeground(COLOR_INFO);
+        lblMarksSummary.setForeground(UITheme.CYAN_ACCENT);
 
         toolBar.add(left, BorderLayout.WEST);
         toolBar.add(lblMarksSummary, BorderLayout.EAST);
+
+        // Center Split: Dual Interactive Charts (Height 210) + Results Table
+        parentMarksChartsContainer = new JPanel(new GridLayout(1, 2, 14, 14));
+        parentMarksChartsContainer.setOpaque(false);
+        parentMarksChartsContainer.setPreferredSize(new Dimension(0, 210));
 
         // Results Table
         String[] cols = {"Semester", "Course Code", "Course Name", "Evaluation Type", "Marks Scored", "Max Marks", "Percentage", "Letter Grade", "Grade Point"};
@@ -286,8 +300,13 @@ public class ParentDashboardFrame extends JFrame {
         };
         JTable table = createDarkTable(marksTableModel);
 
+        JPanel centerPanel = new JPanel(new BorderLayout(0, 12));
+        centerPanel.setOpaque(false);
+        centerPanel.add(parentMarksChartsContainer, BorderLayout.NORTH);
+        centerPanel.add(new JScrollPane(table), BorderLayout.CENTER);
+
         p.add(toolBar, BorderLayout.NORTH);
-        p.add(new JScrollPane(table), BorderLayout.CENTER);
+        p.add(centerPanel, BorderLayout.CENTER);
         return p;
     }
 
@@ -305,6 +324,7 @@ public class ParentDashboardFrame extends JFrame {
 
         double totalMarksObtained = 0;
         double totalMaxMarks = 0;
+        Map<String, Double> subMarks = new LinkedHashMap<>();
 
         for (Mark m : list) {
             marksTableModel.addRow(new Object[]{
@@ -320,12 +340,47 @@ public class ParentDashboardFrame extends JFrame {
             });
             totalMarksObtained += m.getMarksObtained();
             totalMaxMarks += m.getMaxMarks();
+
+            String subCode = m.getSubjectCode() != null ? m.getSubjectCode() : m.getSubjectName();
+            subMarks.put(subCode, m.getPercentage());
         }
 
         String semText = (selectedIdx >= 0 && selectedIdx <= 7) ? "Semester " + (selectedIdx + 1) : "All Semesters";
         double avgPct = totalMaxMarks > 0 ? (totalMarksObtained / totalMaxMarks) * 100.0 : 0.0;
         lblMarksSummary.setText(String.format("%s | Records: %d | Total: %.1f / %.1f (%.1f%%)",
                 semText, list.size(), totalMarksObtained, totalMaxMarks, avgPct));
+
+        // Render JFreeCharts in Ward Marksheet Tab
+        if (parentMarksChartsContainer != null) {
+            parentMarksChartsContainer.removeAll();
+            if (subMarks.isEmpty()) {
+                subMarks.put("No Records", 0.0);
+            }
+            JFreeChart marksChart = AcademicChartFactory.createStudentPerformanceChart("Ward Subject Performance Breakdown (%)", subMarks);
+            ChartPanel pnlMarks = AcademicChartFactory.createChartPanel(marksChart);
+
+            Map<String, Double> semSgpas = new LinkedHashMap<>();
+            int maxSem = (linkedChild != null && linkedChild.getSemester() > 0) ? linkedChild.getSemester() : 8;
+            for (int s = 1; s <= maxSem; s++) {
+                List<Mark> semMarks = markDAO.getMarksForStudentAndSemester(linkedChild.getId(), s);
+                if (!semMarks.isEmpty()) {
+                    double semSum = semMarks.stream().mapToDouble(Mark::getMarksObtained).sum();
+                    double semMax = semMarks.stream().mapToDouble(Mark::getMaxMarks).sum();
+                    double semGpa = semMax > 0 ? (semSum / semMax) * 10.0 : 0.0;
+                    semSgpas.put("Sem " + s, Math.round(semGpa * 100.0) / 100.0);
+                }
+            }
+            if (semSgpas.isEmpty()) {
+                semSgpas.put("Current Sem", linkedChild != null ? linkedChild.getCurrentSgpa() : 8.0);
+            }
+            JFreeChart trendChart = AcademicChartFactory.createSemesterTrendLineChart("Ward SGPA Progression Over Semesters", semSgpas);
+            ChartPanel pnlTrend = AcademicChartFactory.createChartPanel(trendChart);
+
+            parentMarksChartsContainer.add(pnlMarks);
+            parentMarksChartsContainer.add(pnlTrend);
+            parentMarksChartsContainer.revalidate();
+            parentMarksChartsContainer.repaint();
+        }
     }
 
     // =========================================================================
@@ -343,6 +398,10 @@ public class ParentDashboardFrame extends JFrame {
         JPanel pSummary = new JPanel(new BorderLayout(10, 10));
         pSummary.setOpaque(false);
         pSummary.setBorder(new EmptyBorder(8, 8, 8, 8));
+
+        parentAttChartContainer = new JPanel(new BorderLayout());
+        parentAttChartContainer.setOpaque(false);
+        parentAttChartContainer.setPreferredSize(new Dimension(0, 200));
 
         String[] colsSummary = {"Subject Code", "Subject Name", "Total Hours Conducted", "Hours Present", "Duty Leave Credit", "Hours Absent", "Attendance %", "Regulatory Status"};
         attSummaryTableModel = new DefaultTableModel(colsSummary, 0) {
@@ -363,8 +422,13 @@ public class ParentDashboardFrame extends JFrame {
         summaryHeader.add(lblAttNotice, BorderLayout.WEST);
         summaryHeader.add(btnRefAtt, BorderLayout.EAST);
 
+        JPanel summaryCenter = new JPanel(new BorderLayout(0, 10));
+        summaryCenter.setOpaque(false);
+        summaryCenter.add(parentAttChartContainer, BorderLayout.NORTH);
+        summaryCenter.add(new JScrollPane(tblSummary), BorderLayout.CENTER);
+
         pSummary.add(summaryHeader, BorderLayout.NORTH);
-        pSummary.add(new JScrollPane(tblSummary), BorderLayout.CENTER);
+        pSummary.add(summaryCenter, BorderLayout.CENTER);
 
         // Subtab B: Chronological Daily Attendance Log
         JPanel pHistory = new JPanel(new BorderLayout(10, 10));
@@ -399,12 +463,29 @@ public class ParentDashboardFrame extends JFrame {
 
         // 1. Subject-wise summary
         List<AttendanceDAO.SubjectAttendanceSummary> sumList = attendanceDAO.getStudentSubjectWiseAttendance(linkedChild.getId());
+        double totalPresent = 0;
+        double totalDuty = 0;
+        double totalAbsent = 0;
+
         for (AttendanceDAO.SubjectAttendanceSummary s : sumList) {
             String status = s.percentage() >= 75.0 ? "Satisfactory" : "⚠️ SHORTAGE (<75%)";
             attSummaryTableModel.addRow(new Object[]{
                     s.subjectCode(), s.subjectName(), s.totalHours(), s.presentHours(),
                     s.dutyLeaveHours(), s.absentHours(), s.percentage() + "%", status
             });
+            totalPresent += s.presentHours();
+            totalDuty += s.dutyLeaveHours();
+            totalAbsent += s.absentHours();
+        }
+
+        if (parentAttChartContainer != null) {
+            parentAttChartContainer.removeAll();
+            if (totalPresent + totalDuty + totalAbsent <= 0) totalPresent = 100.0;
+            JFreeChart attChart = AcademicChartFactory.createPassFailDonutChart("Ward Attendance Ratio & Clocked Hours", totalPresent, totalAbsent, totalDuty);
+            ChartPanel pnlAtt = AcademicChartFactory.createChartPanel(attChart);
+            parentAttChartContainer.add(pnlAtt, BorderLayout.CENTER);
+            parentAttChartContainer.revalidate();
+            parentAttChartContainer.repaint();
         }
 
         // 2. Chronological History Log

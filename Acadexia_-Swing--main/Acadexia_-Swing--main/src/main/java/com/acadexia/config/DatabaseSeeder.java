@@ -28,6 +28,7 @@ public final class DatabaseSeeder {
                 seedParentsAndExtendedModulesIfEmpty(conn);
                 seedAnnouncementsIfEmpty(conn);
                 seedAcademicCalendarIfEmpty(conn);
+                seedDepartmentClassesIfEmpty(conn);
                 return; // Database already seeded
             }
 
@@ -936,6 +937,36 @@ public final class DatabaseSeeder {
 
         } catch (Exception e) {
             System.err.println("Notice seeding academic calendar: " + e.getMessage());
+        }
+    }
+
+    public static void seedDepartmentClassesIfEmpty(Connection conn) {
+        String findDeptsWithoutClasses = """
+            SELECT d.id, d.code, d.name
+            FROM departments d
+            WHERE d.id NOT IN (SELECT DISTINCT department_id FROM classes)
+            """;
+        String insertClassSql = """
+            INSERT INTO classes (name, department_id, semester, academic_year, section)
+            VALUES (?, ?, 1, '2024-2025', 'A')
+            """;
+        try (PreparedStatement psSelect = conn.prepareStatement(findDeptsWithoutClasses);
+             ResultSet rs = psSelect.executeQuery()) {
+            while (rs.next()) {
+                int deptId = rs.getInt("id");
+                String code = rs.getString("code");
+                String className = "S1 " + code;
+                try (PreparedStatement psInsert = conn.prepareStatement(insertClassSql)) {
+                    psInsert.setString(1, className);
+                    psInsert.setInt(2, deptId);
+                    psInsert.executeUpdate();
+                    System.out.println("🌱 Provisioned initial class '" + className + "' for department: " + code);
+                } catch (SQLException ex) {
+                    System.err.println("Warning: could not seed class for dept " + code + ": " + ex.getMessage());
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Notice seeding department classes: " + e.getMessage());
         }
     }
 }

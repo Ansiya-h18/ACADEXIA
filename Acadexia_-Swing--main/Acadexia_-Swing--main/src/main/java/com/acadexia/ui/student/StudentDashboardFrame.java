@@ -5,8 +5,11 @@ import com.acadexia.model.*;
 import com.acadexia.security.SessionManager;
 import com.acadexia.security.SecurityUtils;
 import com.acadexia.ui.auth.LandingFrame;
+import com.acadexia.ui.charts.AcademicChartFactory;
 import com.acadexia.ui.common.UIComponents;
 import com.acadexia.ui.common.UITheme;
+import org.jfree.chart.ChartPanel;
+import org.jfree.chart.JFreeChart;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -14,7 +17,9 @@ import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.sql.Date;
 import java.time.LocalDate;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public class StudentDashboardFrame extends JFrame {
 
@@ -37,11 +42,16 @@ public class StudentDashboardFrame extends JFrame {
     private DefaultTableModel assignTableModel;
     private DefaultTableModel grievTableModel;
 
+    // Charts
+    private JPanel marksChartsContainer;
+    private JPanel attendanceChartContainer;
+
     public StudentDashboardFrame() {
         this.currentStudent = SessionManager.getInstance().getCurrentStudent();
-        setTitle("Acadexia - Student Academic Portal");
+        setTitle("Acadexia — Student Academic Portal");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(1140, 740);
+        setSize(1220, 800);
+        setMinimumSize(new Dimension(1060, 680));
         setLocationRelativeTo(null);
         getContentPane().setBackground(UITheme.BG_DARK);
 
@@ -81,8 +91,11 @@ public class StudentDashboardFrame extends JFrame {
 
     private JPanel createTopBar() {
         JPanel bar = new JPanel(new BorderLayout());
-        bar.setBackground(new Color(18, 18, 28));
-        bar.setBorder(new EmptyBorder(12, 20, 12, 20));
+        bar.setBackground(UITheme.TOPBAR_BG);
+        bar.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0, 0, 1, 0, UITheme.CARD_BORDER),
+                new EmptyBorder(12, 22, 12, 22)
+        ));
 
         JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
         left.setOpaque(false);
@@ -93,16 +106,16 @@ public class StudentDashboardFrame extends JFrame {
 
         JLabel lblTitle = new JLabel(sName.toUpperCase());
         lblTitle.setFont(UITheme.FONT_SECTION);
-        lblTitle.setForeground(UITheme.PRIMARY);
+        lblTitle.setForeground(UITheme.CYAN_ACCENT);
 
         left.add(lblTitle);
-        left.add(UIComponents.createBadge(sReg, new Color(49, 46, 129), Color.WHITE));
-        left.add(UIComponents.createBadge(sClass, new Color(30, 41, 59), UITheme.TEXT_MUTED));
+        left.add(UIComponents.createBadge(sReg, new Color(18, 38, 72), UITheme.CYAN_ACCENT));
+        left.add(UIComponents.createBadge(sClass, new Color(24, 34, 58), UITheme.TEXT_SECONDARY));
 
         JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         right.setOpaque(false);
 
-        JButton btnLogout = UIComponents.createDangerButton("Log Out");
+        JButton btnLogout = UIComponents.createDangerButton("🚪 Log Out");
         btnLogout.addActionListener(e -> {
             SessionManager.getInstance().logout();
             new LandingFrame().setVisible(true);
@@ -126,10 +139,10 @@ public class StudentDashboardFrame extends JFrame {
         Color attColor = attPct >= 75.0 ? UITheme.SUCCESS : UITheme.DANGER;
         String attSub = attPct >= 75.0 ? "Eligible for Examinations" : "⚠️ Shortage Warning (<75%)";
 
-        kpi.add(UIComponents.createStatCard("Overall Attendance", String.format("%.1f%%", attPct), attSub, attColor));
-        kpi.add(UIComponents.createStatCard("Current SGPA", String.format("%.2f", sgpa), "Current Semester GPA", UITheme.PRIMARY));
-        kpi.add(UIComponents.createStatCard("Cumulative CGPA", String.format("%.2f", cgpa), "Academic Standing", UITheme.INFO));
-        kpi.add(UIComponents.createStatCard("Batch & Roll", (currentStudent != null ? "Roll #" + currentStudent.getRollNumber() : "01"), (currentStudent != null ? currentStudent.getDepartmentName() : "CSE"), UITheme.WARNING));
+        kpi.add(UIComponents.createStatCard("Overall Attendance", String.format("%.1f%%", attPct), attSub, attColor, "🕒"));
+        kpi.add(UIComponents.createStatCard("Current SGPA", String.format("%.2f", sgpa), "Current Semester GPA", UITheme.CYAN_ACCENT, "📊"));
+        kpi.add(UIComponents.createStatCard("Cumulative CGPA", String.format("%.2f", cgpa), "Academic Standing", UITheme.PRIMARY, "🎓"));
+        kpi.add(UIComponents.createStatCard("Batch & Roll", (currentStudent != null ? "Roll #" + currentStudent.getRollNumber() : "01"), (currentStudent != null ? currentStudent.getDepartmentName() : "CSE"), UITheme.WARNING, "🏛️"));
 
         return kpi;
     }
@@ -174,17 +187,27 @@ public class StudentDashboardFrame extends JFrame {
 
         lblMarksSummary = new JLabel();
         lblMarksSummary.setFont(UITheme.FONT_BOLD);
-        lblMarksSummary.setForeground(UITheme.PRIMARY);
+        lblMarksSummary.setForeground(UITheme.CYAN_ACCENT);
 
         toolBar.add(left, BorderLayout.WEST);
         toolBar.add(lblMarksSummary, BorderLayout.EAST);
+
+        // Center Split: Dual Interactive Charts (Height 210) + Marksheet Table
+        marksChartsContainer = new JPanel(new GridLayout(1, 2, 14, 14));
+        marksChartsContainer.setOpaque(false);
+        marksChartsContainer.setPreferredSize(new Dimension(0, 210));
 
         String[] cols = {"Semester", "Subject Code", "Subject Name", "Exam Type", "Marks Obtained", "Max Marks", "Percentage", "Grade", "Grade Point"};
         marksTableModel = new DefaultTableModel(cols, 0);
         JTable table = UIComponents.createStyledTable(marksTableModel);
 
+        JPanel centerPanel = new JPanel(new BorderLayout(0, 12));
+        centerPanel.setOpaque(false);
+        centerPanel.add(marksChartsContainer, BorderLayout.NORTH);
+        centerPanel.add(new JScrollPane(table), BorderLayout.CENTER);
+
         p.add(toolBar, BorderLayout.NORTH);
-        p.add(new JScrollPane(table), BorderLayout.CENTER);
+        p.add(centerPanel, BorderLayout.CENTER);
         return p;
     }
 
@@ -203,6 +226,7 @@ public class StudentDashboardFrame extends JFrame {
 
         double totalMarksObtained = 0;
         double totalMaxMarks = 0;
+        Map<String, Double> subMarks = new LinkedHashMap<>();
 
         for (Mark m : list) {
             marksTableModel.addRow(new Object[]{
@@ -218,6 +242,9 @@ public class StudentDashboardFrame extends JFrame {
             });
             totalMarksObtained += m.getMarksObtained();
             totalMaxMarks += m.getMaxMarks();
+
+            String subCode = m.getSubjectCode() != null ? m.getSubjectCode() : m.getSubjectName();
+            subMarks.put(subCode, m.getPercentage());
         }
 
         if (lblMarksSummary != null) {
@@ -226,19 +253,67 @@ public class StudentDashboardFrame extends JFrame {
             lblMarksSummary.setText(String.format("%s | Records: %d | Total: %.1f/%.1f (%.1f%%)",
                     semText, list.size(), totalMarksObtained, totalMaxMarks, avgPct));
         }
+
+        // Render JFreeCharts in Marksheet Panel
+        if (marksChartsContainer != null) {
+            marksChartsContainer.removeAll();
+
+            // 1. Subject Marks Performance Bar Chart
+            if (subMarks.isEmpty()) {
+                subMarks.put("No Records", 0.0);
+            }
+            JFreeChart marksChart = AcademicChartFactory.createStudentPerformanceChart("Subject Performance & Score Breakdown", subMarks);
+            ChartPanel pnlMarks = AcademicChartFactory.createChartPanel(marksChart);
+
+            // 2. Semester Comparison Progression Line Chart
+            Map<String, Double> semSgpas = new LinkedHashMap<>();
+            int maxSem = (currentStudent != null && currentStudent.getSemester() > 0) ? currentStudent.getSemester() : 8;
+            for (int s = 1; s <= maxSem; s++) {
+                List<Mark> semMarks = markDAO.getMarksForStudentAndSemester(currentStudent.getId(), s);
+                if (!semMarks.isEmpty()) {
+                    double semSum = semMarks.stream().mapToDouble(Mark::getMarksObtained).sum();
+                    double semMax = semMarks.stream().mapToDouble(Mark::getMaxMarks).sum();
+                    double semGpa = semMax > 0 ? (semSum / semMax) * 10.0 : 0.0;
+                    semSgpas.put("Sem " + s, Math.round(semGpa * 100.0) / 100.0);
+                }
+            }
+            if (semSgpas.isEmpty()) {
+                semSgpas.put("Current Sem", currentStudent != null ? currentStudent.getCurrentSgpa() : 8.0);
+            }
+            JFreeChart trendChart = AcademicChartFactory.createSemesterTrendLineChart("Semester SGPA Progression & Trends", semSgpas);
+            ChartPanel pnlTrend = AcademicChartFactory.createChartPanel(trendChart);
+
+            marksChartsContainer.add(pnlMarks);
+            marksChartsContainer.add(pnlTrend);
+            marksChartsContainer.revalidate();
+            marksChartsContainer.repaint();
+        }
     }
 
     private JPanel createAttendancePanel() {
-        JPanel p = new JPanel(new BorderLayout(10, 10));
+        JPanel p = new JPanel(new BorderLayout(12, 12));
         p.setOpaque(false);
         p.setBorder(new EmptyBorder(12, 12, 12, 12));
+
+        attendanceChartContainer = new JPanel(new BorderLayout());
+        attendanceChartContainer.setOpaque(false);
+        attendanceChartContainer.setPreferredSize(new Dimension(0, 200));
 
         String[] cols = {"Subject Code", "Subject Name", "Total Hours", "Present", "Duty Leave Credit", "Absent", "Attendance %", "Status"};
         attTableModel = new DefaultTableModel(cols, 0);
         JTable table = UIComponents.createStyledTable(attTableModel);
 
-        p.add(new JLabel("Subject-wise Attendance Distribution & Shortage Check"), BorderLayout.NORTH);
-        p.add(new JScrollPane(table), BorderLayout.CENTER);
+        JPanel centerPanel = new JPanel(new BorderLayout(0, 12));
+        centerPanel.setOpaque(false);
+        centerPanel.add(attendanceChartContainer, BorderLayout.NORTH);
+        centerPanel.add(new JScrollPane(table), BorderLayout.CENTER);
+
+        JLabel lblHeader = new JLabel("Subject-wise Attendance Distribution & Statutory Shortage Monitoring");
+        lblHeader.setFont(UITheme.FONT_SECTION);
+        lblHeader.setForeground(UITheme.CYAN_ACCENT);
+
+        p.add(lblHeader, BorderLayout.NORTH);
+        p.add(centerPanel, BorderLayout.CENTER);
         return p;
     }
 
@@ -246,12 +321,31 @@ public class StudentDashboardFrame extends JFrame {
         attTableModel.setRowCount(0);
         if (currentStudent == null) return;
         List<AttendanceDAO.SubjectAttendanceSummary> list = attendanceDAO.getStudentSubjectWiseAttendance(currentStudent.getId());
+        double totalPresent = 0;
+        double totalDuty = 0;
+        double totalAbsent = 0;
+
         for (AttendanceDAO.SubjectAttendanceSummary s : list) {
             String stat = s.percentage() >= 75.0 ? "Satisfactory" : "⚠️ SHORTAGE";
             attTableModel.addRow(new Object[]{
                     s.subjectCode(), s.subjectName(), s.totalHours(), s.presentHours(),
                     s.dutyLeaveHours(), s.absentHours(), s.percentage() + "%", stat
             });
+            totalPresent += s.presentHours();
+            totalDuty += s.dutyLeaveHours();
+            totalAbsent += s.absentHours();
+        }
+
+        if (attendanceChartContainer != null) {
+            attendanceChartContainer.removeAll();
+            if (totalPresent + totalDuty + totalAbsent <= 0) {
+                totalPresent = 100;
+            }
+            JFreeChart attChart = AcademicChartFactory.createPassFailDonutChart("Total Academic Hours & Attendance Ratio", totalPresent, totalAbsent, totalDuty);
+            ChartPanel pnlAtt = AcademicChartFactory.createChartPanel(attChart);
+            attendanceChartContainer.add(pnlAtt, BorderLayout.CENTER);
+            attendanceChartContainer.revalidate();
+            attendanceChartContainer.repaint();
         }
     }
 

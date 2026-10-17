@@ -12,12 +12,13 @@ public class StudentDAO {
     public Student getByUserId(int userId) {
         String sql = """
             SELECT s.*, u.full_name, u.email, u.phone, 
-                   c.name AS class_name, c.semester, c.department_id,
+                   c.name AS class_name, c.semester, 
+                   COALESCE(c.department_id, u.department_id) AS department_id,
                    d.name AS department_name
             FROM students s
             JOIN users u ON s.user_id = u.id
             LEFT JOIN classes c ON s.class_id = c.id
-            LEFT JOIN departments d ON c.department_id = d.id
+            LEFT JOIN departments d ON d.id = COALESCE(c.department_id, u.department_id)
             WHERE s.user_id = ?
             """;
         try (Connection conn = DatabaseConnection.getConnection();
@@ -39,12 +40,13 @@ public class StudentDAO {
     public Student getById(int id) {
         String sql = """
             SELECT s.*, u.full_name, u.email, u.phone, 
-                   c.name AS class_name, c.semester, c.department_id,
+                   c.name AS class_name, c.semester, 
+                   COALESCE(c.department_id, u.department_id) AS department_id,
                    d.name AS department_name
             FROM students s
             JOIN users u ON s.user_id = u.id
             LEFT JOIN classes c ON s.class_id = c.id
-            LEFT JOIN departments d ON c.department_id = d.id
+            LEFT JOIN departments d ON d.id = COALESCE(c.department_id, u.department_id)
             WHERE s.id = ?
             """;
         try (Connection conn = DatabaseConnection.getConnection();
@@ -66,12 +68,13 @@ public class StudentDAO {
     public Student getByRegisterNumber(String registerNumber) {
         String sql = """
             SELECT s.*, u.full_name, u.email, u.phone, 
-                   c.name AS class_name, c.semester, c.department_id,
+                   c.name AS class_name, c.semester, 
+                   COALESCE(c.department_id, u.department_id) AS department_id,
                    d.name AS department_name
             FROM students s
             JOIN users u ON s.user_id = u.id
             LEFT JOIN classes c ON s.class_id = c.id
-            LEFT JOIN departments d ON c.department_id = d.id
+            LEFT JOIN departments d ON d.id = COALESCE(c.department_id, u.department_id)
             WHERE s.register_number = ?
             """;
         try (Connection conn = DatabaseConnection.getConnection();
@@ -94,12 +97,13 @@ public class StudentDAO {
         List<Student> list = new ArrayList<>();
         String sql = """
             SELECT s.*, u.full_name, u.email, u.phone, 
-                   c.name AS class_name, c.semester, c.department_id,
+                   c.name AS class_name, c.semester, 
+                   COALESCE(c.department_id, u.department_id) AS department_id,
                    d.name AS department_name
             FROM students s
             JOIN users u ON s.user_id = u.id
             JOIN classes c ON s.class_id = c.id
-            JOIN departments d ON c.department_id = d.id
+            LEFT JOIN departments d ON d.id = COALESCE(c.department_id, u.department_id)
             WHERE s.class_id = ?
             ORDER BY CAST(s.roll_number AS UNSIGNED), s.register_number
             """;
@@ -123,12 +127,13 @@ public class StudentDAO {
         List<Student> list = new ArrayList<>();
         String sql = """
             SELECT s.*, u.full_name, u.email, u.phone, 
-                   c.name AS class_name, c.semester, c.department_id,
+                   c.name AS class_name, c.semester, 
+                   COALESCE(c.department_id, u.department_id) AS department_id,
                    d.name AS department_name
             FROM students s
             JOIN users u ON s.user_id = u.id
-            JOIN classes c ON s.class_id = c.id
-            JOIN departments d ON c.department_id = d.id
+            LEFT JOIN classes c ON s.class_id = c.id
+            JOIN departments d ON d.id = COALESCE(c.department_id, u.department_id)
             WHERE d.id = ?
             ORDER BY c.semester, CAST(s.roll_number AS UNSIGNED)
             """;
@@ -152,12 +157,13 @@ public class StudentDAO {
         List<Student> list = new ArrayList<>();
         String sql = """
             SELECT s.*, u.full_name, u.email, u.phone, 
-                   c.name AS class_name, c.semester, c.department_id,
+                   c.name AS class_name, c.semester, 
+                   COALESCE(c.department_id, u.department_id) AS department_id,
                    d.name AS department_name
             FROM students s
             JOIN users u ON s.user_id = u.id
             LEFT JOIN classes c ON s.class_id = c.id
-            LEFT JOIN departments d ON c.department_id = d.id
+            LEFT JOIN departments d ON d.id = COALESCE(c.department_id, u.department_id)
             ORDER BY d.name, c.semester, CAST(s.roll_number AS UNSIGNED)
             """;
         try (Connection conn = DatabaseConnection.getConnection();
@@ -218,7 +224,7 @@ public class StudentDAO {
         String cleanDept = (deptCode != null && !deptCode.trim().isEmpty()) ? deptCode.trim().toUpperCase() : "CS";
         if (cleanDept.equals("CSE")) cleanDept = "CS";
         String prefix = "REG" + admissionYear + cleanDept;
-        String sql = "SELECT register_number FROM students WHERE register_number LIKE ? ORDER BY register_number DESC LIMIT 1";
+        String sql = "SELECT register_number FROM students WHERE register_number LIKE ? ORDER BY LENGTH(register_number) DESC, register_number DESC LIMIT 1";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, prefix + "%");
@@ -263,7 +269,7 @@ public class StudentDAO {
             SET roll_number = ?, class_id = ?, admission_year = ?, guardian_name = ?, guardian_phone = ?
             WHERE id = ?
             """;
-        String updateUserSql = "UPDATE users SET full_name = ?, email = ?, phone = ? WHERE id = ?";
+        String updateUserSql = "UPDATE users SET full_name = ?, email = ?, phone = ?, department_id = ? WHERE id = ?";
         try (Connection conn = DatabaseConnection.getConnection()) {
             conn.setAutoCommit(false);
             try (PreparedStatement psStu = conn.prepareStatement(updateStudentSql);
@@ -279,7 +285,12 @@ public class StudentDAO {
                 psUser.setString(1, s.getFullName().trim());
                 psUser.setString(2, s.getEmail() != null ? s.getEmail().trim() : null);
                 psUser.setString(3, s.getPhone() != null ? s.getPhone().trim() : null);
-                psUser.setInt(4, s.getUserId());
+                if (s.getDepartmentId() > 0) {
+                    psUser.setInt(4, s.getDepartmentId());
+                } else {
+                    psUser.setNull(4, Types.INTEGER);
+                }
+                psUser.setInt(5, s.getUserId());
                 psUser.executeUpdate();
 
                 conn.commit();

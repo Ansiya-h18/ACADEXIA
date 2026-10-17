@@ -4,8 +4,19 @@ import com.acadexia.dao.*;
 import com.acadexia.model.*;
 import com.acadexia.security.SessionManager;
 import com.acadexia.ui.auth.LandingFrame;
+import com.acadexia.ui.charts.AcademicChartFactory;
+import com.acadexia.ui.charts.AcademicChartTheme;
 import com.acadexia.ui.common.UIComponents;
 import com.acadexia.ui.common.UITheme;
+import org.jfree.chart.ChartFactory;
+import org.jfree.chart.ChartPanel;
+import org.jfree.chart.JFreeChart;
+import org.jfree.chart.labels.StandardCategoryItemLabelGenerator;
+import org.jfree.chart.plot.CategoryPlot;
+import org.jfree.chart.plot.PlotOrientation;
+import org.jfree.chart.renderer.category.BarRenderer;
+import org.jfree.chart.renderer.category.StandardBarPainter;
+import org.jfree.data.category.DefaultCategoryDataset;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -41,6 +52,7 @@ public class FacultyDashboardFrame extends JFrame {
     private DefaultTableModel cfaStudentTableModel;
     private DefaultTableModel cfaLeaveTableModel;
     private DefaultTableModel hodLeaveTableModel;
+    private final JPanel marksChartContainer = new JPanel(new BorderLayout());
 
     private List<SubjectDAO.AssignedCourse> assignedCourses;
     private List<DutyLeave> cfaPendingLeaves;
@@ -84,34 +96,37 @@ public class FacultyDashboardFrame extends JFrame {
     }
 
     private JPanel createTopBar() {
-        JPanel bar = new JPanel(new BorderLayout());
-        bar.setBackground(new Color(18, 18, 28));
-        bar.setBorder(new EmptyBorder(12, 20, 12, 20));
+        JPanel bar = new JPanel(new BorderLayout(15, 0));
+        bar.setBackground(UITheme.TOPBAR_BG);
+        bar.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0, 0, 1, 0, UITheme.CARD_BORDER),
+                new EmptyBorder(14, 24, 14, 24)
+        ));
 
-        JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
         left.setOpaque(false);
 
         String facName = currentFaculty != null ? currentFaculty.getFullName() : "Faculty";
         String facCode = currentFaculty != null ? currentFaculty.getFacultyId() : "FAC";
         JLabel lblTitle = new JLabel(facName.toUpperCase());
         lblTitle.setFont(UITheme.FONT_SECTION);
-        lblTitle.setForeground(UITheme.PRIMARY);
+        lblTitle.setForeground(Color.WHITE);
 
         left.add(lblTitle);
-        left.add(UIComponents.createBadge(facCode, new Color(49, 46, 129), Color.WHITE));
-        left.add(UIComponents.createBadge("Subject Teacher", new Color(30, 41, 59), UITheme.TEXT_MUTED));
+        left.add(UIComponents.createBadge(facCode, new Color(37, 99, 235), Color.WHITE));
+        left.add(UIComponents.createBadge("Subject Teacher", new Color(19, 29, 54), UITheme.CYAN_ACCENT));
 
         if (currentFaculty != null && currentFaculty.isCfa()) {
-            left.add(UIComponents.createBadge("CFA: " + currentFaculty.getAdvisedClassName(), new Color(6, 78, 59), UITheme.SUCCESS));
+            left.add(UIComponents.createBadge("CFA: " + currentFaculty.getAdvisedClassName(), new Color(5, 150, 105), Color.WHITE));
         }
         if (currentFaculty != null && currentFaculty.isHod()) {
-            left.add(UIComponents.createBadge("HOD (" + currentFaculty.getDepartmentName() + ")", new Color(120, 53, 15), UITheme.WARNING));
+            left.add(UIComponents.createBadge("HOD (" + currentFaculty.getDepartmentName() + ")", new Color(217, 119, 6), Color.WHITE));
         }
 
         JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         right.setOpaque(false);
 
-        JButton btnLogout = UIComponents.createDangerButton("Log Out");
+        JButton btnLogout = UIComponents.createDangerButton("🚪 Log Out");
         btnLogout.addActionListener(e -> {
             SessionManager.getInstance().logout();
             new LandingFrame().setVisible(true);
@@ -410,6 +425,7 @@ public class FacultyDashboardFrame extends JFrame {
                         int facId = currentFaculty != null ? currentFaculty.getId() : 1;
                         if (markDAO.recordMark(stuId, selCourse.subjectId(), selType, newObtained, newMax, Date.valueOf(LocalDate.now()), facId)) {
                             JOptionPane.showMessageDialog(this, "Mark updated and saved successfully for " + name + "!");
+                            refreshMarksChartFromTable(selCourse.subjectCode());
                         }
                     }
                 } catch (NumberFormatException ex) {
@@ -421,10 +437,96 @@ public class FacultyDashboardFrame extends JFrame {
         quickBar.add(lblInfo);
         quickBar.add(btnEditSingleMark);
 
+        marksChartContainer.setOpaque(false);
+        marksChartContainer.setPreferredSize(new Dimension(380, 400));
+
+        JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, new JScrollPane(table), marksChartContainer);
+        splitPane.setDividerLocation(620);
+        splitPane.setResizeWeight(0.6);
+        splitPane.setOpaque(false);
+        splitPane.setBorder(null);
+
         p.add(tool, BorderLayout.NORTH);
-        p.add(new JScrollPane(table), BorderLayout.CENTER);
+        p.add(splitPane, BorderLayout.CENTER);
         p.add(quickBar, BorderLayout.SOUTH);
         return p;
+    }
+
+    private void refreshMarksChartFromTable(String subjectCode) {
+        marksChartContainer.removeAll();
+        int rowCount = marksTableModel.getRowCount();
+        if (rowCount == 0) {
+            JPanel emptyP = UIComponents.createCardPanel();
+            emptyP.setLayout(new GridBagLayout());
+            JLabel lbl = new JLabel("No mark records to display analytics.");
+            lbl.setFont(UITheme.FONT_REGULAR);
+            lbl.setForeground(UITheme.TEXT_MUTED);
+            emptyP.add(lbl);
+            marksChartContainer.add(emptyP, BorderLayout.CENTER);
+            marksChartContainer.revalidate();
+            marksChartContainer.repaint();
+            return;
+        }
+
+        int fail = 0;        // < 40%
+        int pass = 0;        // 40-59%
+        int firstClass = 0;  // 60-74%
+        int distinction = 0; // 75-89%
+        int exemplary = 0;   // 90-100%
+
+        for (int r = 0; r < rowCount; r++) {
+            double obtained = 0.0;
+            double max = 50.0;
+            try {
+                obtained = Double.parseDouble(marksTableModel.getValueAt(r, 4).toString());
+                max = Double.parseDouble(marksTableModel.getValueAt(r, 5).toString());
+            } catch (Exception ignored) {}
+            if (max <= 0) max = 50.0;
+            double pct = (obtained / max) * 100.0;
+            if (pct < 40.0) fail++;
+            else if (pct < 60.0) pass++;
+            else if (pct < 75.0) firstClass++;
+            else if (pct < 90.0) distinction++;
+            else exemplary++;
+        }
+
+        DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+        dataset.addValue(fail, "Students", "<40% (Fail)");
+        dataset.addValue(pass, "Students", "40-60% (Pass)");
+        dataset.addValue(firstClass, "Students", "60-75% (Good)");
+        dataset.addValue(distinction, "Students", "75-90% (Dist.)");
+        dataset.addValue(exemplary, "Students", "90-100% (Excl.)");
+
+        String title = "Score Distribution (" + (subjectCode != null && !subjectCode.isEmpty() ? subjectCode : "Course") + ")";
+        JFreeChart chart = ChartFactory.createBarChart(
+                title,
+                "Grade Bracket",
+                "Students",
+                dataset,
+                PlotOrientation.VERTICAL,
+                false,
+                true,
+                false
+        );
+        AcademicChartTheme.apply(chart);
+
+        CategoryPlot plot = chart.getCategoryPlot();
+        BarRenderer renderer = (BarRenderer) plot.getRenderer();
+        renderer.setBarPainter(new StandardBarPainter());
+        renderer.setMaximumBarWidth(0.14);
+        renderer.setItemMargin(0.04);
+        renderer.setDefaultItemLabelsVisible(true);
+        renderer.setDefaultItemLabelGenerator(new StandardCategoryItemLabelGenerator());
+        renderer.setDefaultItemLabelFont(new Font("Segoe UI", Font.BOLD, 11));
+        renderer.setDefaultItemLabelPaint(Color.WHITE);
+
+        GradientPaint gp = new GradientPaint(0, 0, UITheme.CYAN_ACCENT, 0, 260, UITheme.PRIMARY);
+        renderer.setSeriesPaint(0, gp);
+
+        ChartPanel cp = AcademicChartFactory.createChartPanel(chart);
+        marksChartContainer.add(cp, BorderLayout.CENTER);
+        marksChartContainer.revalidate();
+        marksChartContainer.repaint();
     }
 
     private void loadMarksEntry(Mark.ExamType examType) {
@@ -443,6 +545,7 @@ public class FacultyDashboardFrame extends JFrame {
                     r.maxMarks() != null ? r.maxMarks() : 50.0
             });
         }
+        refreshMarksChartFromTable(sel.subjectCode());
     }
 
     private void saveMarks(Mark.ExamType examType) {
@@ -460,6 +563,7 @@ public class FacultyDashboardFrame extends JFrame {
             }
         }
         JOptionPane.showMessageDialog(this, "Saved " + examType.getLabel() + " for " + count + " students.");
+        refreshMarksChartFromTable(sel.subjectCode());
     }
 
     private void autoCalculateInternalMarks() {
@@ -494,6 +598,7 @@ public class FacultyDashboardFrame extends JFrame {
             }
         }
         JOptionPane.showMessageDialog(this, "Auto-calculated Consolidated Internal Marks for " + count + " students based on Series test scores.");
+        refreshMarksChartFromTable(sel.subjectCode());
     }
 
     private JPanel createAssignmentsSubPanel() {
