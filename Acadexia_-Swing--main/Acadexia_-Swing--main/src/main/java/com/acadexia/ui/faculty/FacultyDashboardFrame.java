@@ -52,6 +52,14 @@ public class FacultyDashboardFrame extends JFrame {
     private DefaultTableModel cfaStudentTableModel;
     private DefaultTableModel cfaLeaveTableModel;
     private DefaultTableModel hodLeaveTableModel;
+    private DefaultTableModel hodStudentTableModel;
+    private JTabbedPane mainTabs;
+    private JTabbedPane hodTabs;
+    private JPanel hodStudentDetailsPanel;
+    private List<Student> hodDepartmentStudents;
+    private JComboBox<Object> cmbHodClassFilter;
+    private JTextField txtHodStudentSearch;
+    private JLabel lblHodStudentCount;
     private final JPanel marksChartContainer = new JPanel(new BorderLayout());
 
     private List<SubjectDAO.AssignedCourse> assignedCourses;
@@ -72,27 +80,27 @@ public class FacultyDashboardFrame extends JFrame {
     private void initUI() {
         setLayout(new BorderLayout());
 
-        // Top Navigation Header
-        add(createTopBar(), BorderLayout.NORTH);
-
         // Center Dynamic Multi-Role Tabs
-        JTabbedPane tabs = new JTabbedPane();
-        tabs.setFont(UITheme.FONT_BOLD);
+        mainTabs = new JTabbedPane();
+        mainTabs.setFont(UITheme.FONT_BOLD);
 
         // 1. My Teaching (Universal Subject Faculty Portal)
-        tabs.addTab("📚 My Teaching (Course Portal)", createTeachingPanel());
+        mainTabs.addTab("📚 My Teaching (Course Portal)", createTeachingPanel());
 
         // 2. Class Advisor (CFA) Tab (Unlocked if CFA)
         if (currentFaculty != null && currentFaculty.isCfa()) {
-            tabs.addTab("📋 Class Advisor (CFA)", createCfaPanel());
+            mainTabs.addTab("📋 Class Advisor (CFA)", createCfaPanel());
         }
 
         // 3. HOD Portal Tab (Unlocked if HOD)
         if (currentFaculty != null && currentFaculty.isHod()) {
-            tabs.addTab("🏛️ HOD Portal (" + currentFaculty.getDepartmentName() + ")", createHodPanel());
+            String deptName = currentFaculty.getDepartmentName() != null ? currentFaculty.getDepartmentName() : "Department";
+            mainTabs.addTab("🏛️ HOD Portal (" + deptName + ")", createHodPanel());
         }
 
-        add(tabs, BorderLayout.CENTER);
+        // Top Navigation Header
+        add(createTopBar(), BorderLayout.NORTH);
+        add(mainTabs, BorderLayout.CENTER);
     }
 
     private JPanel createTopBar() {
@@ -120,7 +128,13 @@ public class FacultyDashboardFrame extends JFrame {
             left.add(UIComponents.createBadge("CFA: " + currentFaculty.getAdvisedClassName(), new Color(5, 150, 105), Color.WHITE));
         }
         if (currentFaculty != null && currentFaculty.isHod()) {
-            left.add(UIComponents.createBadge("HOD (" + currentFaculty.getDepartmentName() + ")", new Color(217, 119, 6), Color.WHITE));
+            String deptName = currentFaculty.getDepartmentName() != null ? currentFaculty.getDepartmentName() : "Department";
+            left.add(UIComponents.createBadge("HOD (" + deptName + ")", new Color(217, 119, 6), Color.WHITE));
+
+            JButton btnTopHodStudents = UIComponents.createSecondaryButton("👨‍🎓 Student Details");
+            btnTopHodStudents.setFont(UITheme.FONT_SMALL);
+            btnTopHodStudents.addActionListener(e -> navigateToHodStudentDetails());
+            left.add(btnTopHodStudents);
         }
 
         JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
@@ -138,6 +152,21 @@ public class FacultyDashboardFrame extends JFrame {
         bar.add(left, BorderLayout.WEST);
         bar.add(right, BorderLayout.EAST);
         return bar;
+    }
+
+    public void navigateToHodStudentDetails() {
+        if (mainTabs != null) {
+            for (int i = 0; i < mainTabs.getTabCount(); i++) {
+                if (mainTabs.getTitleAt(i).contains("HOD Portal")) {
+                    mainTabs.setSelectedIndex(i);
+                    break;
+                }
+            }
+        }
+        if (hodTabs != null && hodStudentDetailsPanel != null) {
+            hodTabs.setSelectedComponent(hodStudentDetailsPanel);
+            loadHodStudents();
+        }
     }
 
     // =========================================================================
@@ -1019,6 +1048,12 @@ public class FacultyDashboardFrame extends JFrame {
             List<Student> students = studentDAO.getStudentsByClass(currentFaculty.getAdvisedClassId());
             student = students.stream().filter(s -> s.getId() == studentId).findFirst().orElse(null);
         }
+        if (student == null && hodDepartmentStudents != null) {
+            student = hodDepartmentStudents.stream().filter(s -> s.getId() == studentId).findFirst().orElse(null);
+        }
+        if (student == null) {
+            student = studentDAO.getById(studentId);
+        }
         if (student == null) {
             student = studentDAO.getAllStudents().stream().filter(s -> s.getId() == studentId).findFirst().orElse(null);
         }
@@ -1223,16 +1258,35 @@ public class FacultyDashboardFrame extends JFrame {
         p.setOpaque(false);
         p.setBorder(new EmptyBorder(16, 20, 16, 20));
 
-        JLabel lblTitle = new JLabel("HOD Governance Portal - " + currentFaculty.getDepartmentName());
+        JPanel headerPanel = new JPanel(new BorderLayout(10, 0));
+        headerPanel.setOpaque(false);
+
+        String deptName = currentFaculty != null && currentFaculty.getDepartmentName() != null
+                ? currentFaculty.getDepartmentName() : "Department";
+        JLabel lblTitle = new JLabel("HOD Governance Portal - " + deptName);
         lblTitle.setFont(UITheme.FONT_TITLE);
         lblTitle.setForeground(UITheme.TEXT_PRIMARY);
 
-        JTabbedPane hodTabs = new JTabbedPane();
+        JPanel headerActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        headerActions.setOpaque(false);
+
+        JButton btnStudentDetails = UIComponents.createPrimaryButton("👨‍🎓 Student Details");
+        btnStudentDetails.setFont(UITheme.FONT_BOLD);
+        btnStudentDetails.addActionListener(e -> navigateToHodStudentDetails());
+        headerActions.add(btnStudentDetails);
+
+        headerPanel.add(lblTitle, BorderLayout.WEST);
+        headerPanel.add(headerActions, BorderLayout.EAST);
+
+        hodTabs = new JTabbedPane();
+        hodTabs.setFont(UITheme.FONT_BOLD);
+        hodStudentDetailsPanel = createHodStudentDetailsPanel();
+        hodTabs.addTab("👨‍🎓 Student Details", hodStudentDetailsPanel);
         hodTabs.addTab("📋 Tier-2 Duty Leave Endorsement", createHodDutyLeavePanel());
         hodTabs.addTab("👔 Assign Class Advisor (CFA)", createHodAssignCfaPanel());
         hodTabs.addTab("📖 Assign Subject Teachers (Cross-Dept)", createHodAssignTeacherPanel());
 
-        p.add(lblTitle, BorderLayout.NORTH);
+        p.add(headerPanel, BorderLayout.NORTH);
         p.add(hodTabs, BorderLayout.CENTER);
         return p;
     }
@@ -1367,6 +1421,209 @@ public class FacultyDashboardFrame extends JFrame {
 
         p.add(form, BorderLayout.NORTH);
         return p;
+    }
+
+    private JPanel createHodStudentDetailsPanel() {
+        JPanel p = new JPanel(new BorderLayout(12, 12));
+        p.setOpaque(false);
+        p.setBorder(new EmptyBorder(10, 10, 10, 10));
+
+        // Top Toolbar: Search, Class Filter, Refresh, View Full Details
+        JPanel tool = new JPanel(new BorderLayout(10, 10));
+        tool.setOpaque(false);
+
+        JPanel leftControls = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        leftControls.setOpaque(false);
+
+        JLabel lblSearch = new JLabel("Search:");
+        lblSearch.setFont(UITheme.FONT_BOLD);
+        lblSearch.setForeground(UITheme.TEXT_PRIMARY);
+
+        txtHodStudentSearch = new JTextField(12);
+        txtHodStudentSearch.setFont(UITheme.FONT_REGULAR);
+        txtHodStudentSearch.addActionListener(e -> filterHodStudents());
+
+        JLabel lblClass = new JLabel("Class:");
+        lblClass.setFont(UITheme.FONT_BOLD);
+        lblClass.setForeground(UITheme.TEXT_PRIMARY);
+
+        cmbHodClassFilter = new JComboBox<>();
+        cmbHodClassFilter.setFont(UITheme.FONT_REGULAR);
+        cmbHodClassFilter.addActionListener(e -> filterHodStudents());
+
+        JButton btnFilter = UIComponents.createSecondaryButton("🔍 Filter");
+        btnFilter.addActionListener(e -> filterHodStudents());
+
+        JButton btnClear = UIComponents.createSecondaryButton("Clear");
+        btnClear.addActionListener(e -> {
+            txtHodStudentSearch.setText("");
+            if (cmbHodClassFilter.getItemCount() > 0) cmbHodClassFilter.setSelectedIndex(0);
+            filterHodStudents();
+        });
+
+        JButton btnRefresh = UIComponents.createSecondaryButton("🔄 Refresh");
+        btnRefresh.addActionListener(e -> loadHodStudents());
+
+        leftControls.add(lblSearch);
+        leftControls.add(txtHodStudentSearch);
+        leftControls.add(lblClass);
+        leftControls.add(cmbHodClassFilter);
+        leftControls.add(btnFilter);
+        leftControls.add(btnClear);
+        leftControls.add(btnRefresh);
+
+        JPanel rightControls = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        rightControls.setOpaque(false);
+
+        lblHodStudentCount = new JLabel("Enrolled: 0");
+        lblHodStudentCount.setFont(UITheme.FONT_BOLD);
+        lblHodStudentCount.setForeground(UITheme.CYAN_ACCENT);
+
+        JButton btnViewDetails = UIComponents.createPrimaryButton("🔍 View Selected Student Full Details");
+        btnViewDetails.setFont(UITheme.FONT_BOLD);
+
+        rightControls.add(lblHodStudentCount);
+        rightControls.add(btnViewDetails);
+
+        tool.add(leftControls, BorderLayout.WEST);
+        tool.add(rightControls, BorderLayout.EAST);
+
+        // Department Student Table
+        String[] cols = {
+                "Student ID", "Register No", "Roll No", "Student Name", "Class", "Semester",
+                "Attendance %", "SGPA", "CGPA", "Phone", "Guardian Name", "Guardian Phone"
+        };
+        hodStudentTableModel = new DefaultTableModel(cols, 0) {
+            @Override
+            public boolean isCellEditable(int r, int c) { return false; }
+        };
+
+        JTable table = UIComponents.createStyledTable(hodStudentTableModel);
+        table.getColumnModel().getColumn(0).setPreferredWidth(70);
+        table.getColumnModel().getColumn(1).setPreferredWidth(120);
+        table.getColumnModel().getColumn(2).setPreferredWidth(60);
+        table.getColumnModel().getColumn(3).setPreferredWidth(150);
+        table.getColumnModel().getColumn(4).setPreferredWidth(100);
+        table.getColumnModel().getColumn(5).setPreferredWidth(70);
+        table.getColumnModel().getColumn(6).setPreferredWidth(90);
+        table.getColumnModel().getColumn(7).setPreferredWidth(60);
+        table.getColumnModel().getColumn(8).setPreferredWidth(60);
+        table.getColumnModel().getColumn(9).setPreferredWidth(100);
+        table.getColumnModel().getColumn(10).setPreferredWidth(130);
+        table.getColumnModel().getColumn(11).setPreferredWidth(110);
+
+        Runnable openDetailsAction = () -> {
+            int row = table.getSelectedRow();
+            if (row < 0) {
+                JOptionPane.showMessageDialog(this,
+                        "Please select a student row from the department directory table first.",
+                        "Select Student", JOptionPane.INFORMATION_MESSAGE);
+                return;
+            }
+            int studentId = (int) hodStudentTableModel.getValueAt(row, 0);
+            openStudentDetailsWindow(studentId);
+        };
+
+        btnViewDetails.addActionListener(e -> openDetailsAction.run());
+
+        table.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                if (e.getClickCount() == 2) {
+                    openDetailsAction.run();
+                }
+            }
+        });
+
+        loadHodStudents();
+
+        p.add(tool, BorderLayout.NORTH);
+        p.add(new JScrollPane(table), BorderLayout.CENTER);
+        return p;
+    }
+
+    private void loadHodStudents() {
+        if (currentFaculty == null) return;
+        int deptId = currentFaculty.getDepartmentId();
+        hodDepartmentStudents = studentDAO.getStudentsByDepartment(deptId);
+
+        if (cmbHodClassFilter != null) {
+            java.awt.event.ActionListener[] listeners = cmbHodClassFilter.getActionListeners();
+            for (java.awt.event.ActionListener l : listeners) cmbHodClassFilter.removeActionListener(l);
+
+            Object prevSelected = cmbHodClassFilter.getSelectedItem();
+            cmbHodClassFilter.removeAllItems();
+            String deptName = currentFaculty.getDepartmentName() != null ? currentFaculty.getDepartmentName() : "Department";
+            cmbHodClassFilter.addItem("All " + deptName + " Classes");
+
+            List<ClassBatch> classes = classDAO.getClassesByDepartment(deptId);
+            for (ClassBatch cb : classes) {
+                cmbHodClassFilter.addItem(cb);
+            }
+
+            if (prevSelected != null) {
+                for (int i = 0; i < cmbHodClassFilter.getItemCount(); i++) {
+                    if (prevSelected.toString().equals(cmbHodClassFilter.getItemAt(i).toString())) {
+                        cmbHodClassFilter.setSelectedIndex(i);
+                        break;
+                    }
+                }
+            }
+
+            for (java.awt.event.ActionListener l : listeners) cmbHodClassFilter.addActionListener(l);
+        }
+
+        filterHodStudents();
+    }
+
+    private void filterHodStudents() {
+        if (hodStudentTableModel == null || hodDepartmentStudents == null || currentFaculty == null) return;
+        hodStudentTableModel.setRowCount(0);
+
+        String query = txtHodStudentSearch != null ? txtHodStudentSearch.getText().trim().toLowerCase() : "";
+        Object selectedClass = cmbHodClassFilter != null ? cmbHodClassFilter.getSelectedItem() : null;
+        Integer filterClassId = null;
+        if (selectedClass instanceof ClassBatch cb) {
+            filterClassId = cb.getId();
+        }
+
+        int matchCount = 0;
+        for (Student s : hodDepartmentStudents) {
+            if (s.getDepartmentId() != currentFaculty.getDepartmentId()) {
+                continue;
+            }
+
+            if (filterClassId != null && s.getClassId() != filterClassId) {
+                continue;
+            }
+
+            if (!query.isEmpty()) {
+                boolean match = (s.getFullName() != null && s.getFullName().toLowerCase().contains(query))
+                        || (s.getRegisterNumber() != null && s.getRegisterNumber().toLowerCase().contains(query))
+                        || (s.getRollNumber() != null && s.getRollNumber().toLowerCase().contains(query));
+                if (!match) continue;
+            }
+
+            matchCount++;
+            hodStudentTableModel.addRow(new Object[]{
+                    s.getId(),
+                    s.getRegisterNumber(),
+                    s.getRollNumber(),
+                    s.getFullName(),
+                    s.getClassName(),
+                    "S" + s.getSemester(),
+                    String.format("%.1f%%", s.getAttendancePercentage()),
+                    String.format("%.2f", s.getCurrentSgpa()),
+                    String.format("%.2f", s.getCurrentCgpa()),
+                    s.getPhone() != null ? s.getPhone() : "-",
+                    s.getGuardianName() != null ? s.getGuardianName() : "-",
+                    s.getGuardianPhone() != null ? s.getGuardianPhone() : "-"
+            });
+        }
+
+        if (lblHodStudentCount != null) {
+            lblHodStudentCount.setText("Enrolled Students: " + matchCount + " (Dept Total: " + hodDepartmentStudents.size() + ")");
+        }
     }
 
     // =========================================================================

@@ -396,6 +396,7 @@ public class StudentDAO {
         s.setGuardianPhone(rs.getString("guardian_phone"));
         s.setFullName(rs.getString("full_name"));
         s.setEmail(rs.getString("email"));
+        s.setPhone(rs.getString("phone"));
         s.setClassName(rs.getString("class_name") != null ? rs.getString("class_name") : "Assigned Class");
         s.setSemester(rs.getInt("semester"));
         s.setDepartmentId(rs.getInt("department_id"));

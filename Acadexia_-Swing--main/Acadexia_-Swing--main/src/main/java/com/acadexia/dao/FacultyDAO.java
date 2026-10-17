@@ -137,12 +137,18 @@ public class FacultyDAO {
      */
     private void enrichFacultyRoles(Faculty f, Connection conn) {
         // Check if HOD
-        String hodSql = "SELECT COUNT(*) FROM departments WHERE hod_faculty_id = ?";
+        String hodSql = "SELECT id, name FROM departments WHERE hod_faculty_id = ? LIMIT 1";
         try (PreparedStatement ps = conn.prepareStatement(hodSql)) {
             ps.setInt(1, f.getId());
             try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next() && rs.getInt(1) > 0) {
+                if (rs.next()) {
                     f.setHod(true);
+                    int hodDeptId = rs.getInt("id");
+                    String hodDeptName = rs.getString("name");
+                    if (hodDeptId > 0) {
+                        f.setDepartmentId(hodDeptId);
+                        f.setDepartmentName(hodDeptName);
+                    }
                 }
             }
         } catch (SQLException ignored) {}
